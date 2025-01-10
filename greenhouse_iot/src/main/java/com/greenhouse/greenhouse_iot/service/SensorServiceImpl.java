@@ -10,7 +10,7 @@ import com.greenhouse.greenhouse_iot.repository.SensorRepository;
 import com.greenhouse.greenhouse_iot.repository.UserRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -26,7 +26,7 @@ public class SensorServiceImpl implements SensorService{
     private final SensorMapper sensorMapper;
     private final MqttService mqttService;
     private final SecurityService securityService;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
     @Override
     public List<SensorDto> getSensors() {
         return sensorRepository.findAll().stream()
@@ -49,7 +49,7 @@ public class SensorServiceImpl implements SensorService{
     public SensorDto addSensor(AddSensorDto addSensorDto) {
         Sensor sensor = sensorMapper.addSensorDtoToSensor(addSensorDto);
         sensor.setUser(null);
-        sensor.setSensorCode(hashSensorCode(addSensorDto.getSensorCode()));
+        sensor.setSensorCode(passwordEncoder.encode(addSensorDto.getSensorCode()));
         sensor.setSensorName("default-name");
 
         sensor = sensorRepository.save(sensor);
@@ -80,7 +80,7 @@ public class SensorServiceImpl implements SensorService{
             throw new RuntimeException("This sensor already has an owner");
         }
 
-        if(!hashSensorCode(assignSensorToUserDto.getSensorCode()).equals(sensor.getSensorCode())) {
+        if(!passwordEncoder.matches(assignSensorToUserDto.getSensorCode(), sensor.getSensorCode())) {
             log.error("Incorrect sensor code");
             throw new RuntimeException("Incorrect sensor code");
         }
@@ -113,7 +113,7 @@ public class SensorServiceImpl implements SensorService{
 
         MqttCredentials mqttCredentials = mqttService.resetMqttPasswordForSensor(sensor);
         PairSensorDto pairSensorDto = new PairSensorDto();
-        pairSensorDto.setMqttBrokerUrl(mqttService.getBrokerUrl());
+        pairSensorDto.setMqttBrokerUrl(mqttService.getMqttBrokerUrl());
         pairSensorDto.setMqttUsername(mqttCredentials.getMqttUsername());
         pairSensorDto.setMqttPassword(mqttCredentials.getMqttPassword());
 
@@ -146,7 +146,7 @@ public class SensorServiceImpl implements SensorService{
                 .orElseThrow(() -> new ResourceNotFoundException("Sensor not found"));
 
         securityService.checkSensorOwnership(loggedInUser, sensor);
-
+        log.info("Change name for sensor: {}, value: {}", sensorId, changeSensorNameDto.getSensorName());
         sensor.setSensorName(changeSensorNameDto.getSensorName());
         sensor = sensorRepository.save(sensor);
 
@@ -162,7 +162,7 @@ public class SensorServiceImpl implements SensorService{
                 .orElseThrow(() -> new ResourceNotFoundException("Sensor not found"));
 
         securityService.checkSensorOwnership(loggedInUser, sensor);
-    
+        log.info("Change reading period for sensor: {}, value: {}", sensorId, changeReadingPeriodDto.getReadingPeriod());
         if(mqttService.setSensorReadingPeriod(sensor.getSensorMqttName(), changeReadingPeriodDto.getReadingPeriod())){
             sensor.setReadingPeriod(changeReadingPeriodDto.getReadingPeriod());
             sensor = sensorRepository.save(sensor);
@@ -182,11 +182,11 @@ public class SensorServiceImpl implements SensorService{
                 .orElseThrow(() -> new ResourceNotFoundException("Sensor not found"));
 
         securityService.checkSensorOwnership(loggedInUser, sensor);
-
+        log.info("Change state for sensor: {}, value: {}", sensorId, changeSensorStateDto.getSensorState());
         if(mqttService.setSensorState(sensor.getSensorMqttName(), changeSensorStateDto.getSensorState())) {
-            sensor.setCurrentState(changeSensorStateDto.getSensorState().getState());
+            sensor.setCurrentState(changeSensorStateDto.getSensorState());
             sensor = sensorRepository.save(sensor);
-            return Objects.equals(sensor.getCurrentState(), changeSensorStateDto.getSensorState().getState());
+            return Objects.equals(sensor.getCurrentState(), changeSensorStateDto.getSensorState());
         }
 
         return false;
@@ -199,7 +199,7 @@ public class SensorServiceImpl implements SensorService{
                 .orElseThrow(() -> new ResourceNotFoundException("Sensor not found"));
 
         securityService.checkSensorOwnership(loggedInUser, sensor);
-
+        log.info("Change height for sensor: {}, value: {}", sensorId, changeSensorHeightDto.getHeight());
         if(mqttService.setSensorHeight(sensor.getSensorMqttName(), changeSensorHeightDto.getHeight())) {
             sensor.setHeight(changeSensorHeightDto.getHeight());
             sensor = sensorRepository.save(sensor);
@@ -217,11 +217,11 @@ public class SensorServiceImpl implements SensorService{
                 .orElseThrow(() -> new ResourceNotFoundException("Sensor not found"));
 
         securityService.checkSensorOwnership(loggedInUser, sensor);
-
+        log.info("Change soil moisture alert threshold for sensor: {}, value: {}", sensorId, changeSoilMoistureAlertThresholdDto.getThreshold());
         if(mqttService.setSoilMoistureAlertThreshold(sensor.getSensorMqttName(), changeSoilMoistureAlertThresholdDto.getThreshold())) {
             sensor.setSoilMoistureAlertThreshold(changeSoilMoistureAlertThresholdDto.getThreshold());
             sensor = sensorRepository.save(sensor);
-            return Objects.equals(sensor.getHeight(), changeSoilMoistureAlertThresholdDto.getThreshold());
+            return Objects.equals(sensor.getSoilMoistureAlertThreshold(), changeSoilMoistureAlertThresholdDto.getThreshold());
         }
 
         return false;
@@ -233,13 +233,13 @@ public class SensorServiceImpl implements SensorService{
 
         Sensor sensor = sensorRepository.findById(sensorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sensor not found"));
-
+        log.info("Change temperature alert threshold for sensor: {}, value: {}", sensorId, changeTemperatureAlertThresholdDto.getThreshold());
         securityService.checkSensorOwnership(loggedInUser, sensor);
 
         if(mqttService.setTemperatureAlertThreshold(sensor.getSensorMqttName(), changeTemperatureAlertThresholdDto.getThreshold())) {
             sensor.setTemperatureAlertThreshold(changeTemperatureAlertThresholdDto.getThreshold());
             sensor = sensorRepository.save(sensor);
-            return Objects.equals(sensor.getHeight(), changeTemperatureAlertThresholdDto.getThreshold());
+            return Objects.equals(sensor.getTemperatureAlertThreshold(), changeTemperatureAlertThresholdDto.getThreshold());
         }
 
         return false;
@@ -253,9 +253,5 @@ public class SensorServiceImpl implements SensorService{
 
         List<Sensor> sensors = sensorRepository.findSensorsByUserId(userId);
         return sensors.stream().map(sensorMapper::sensorToSensorDto).collect(Collectors.toList());
-    }
-
-    private String hashSensorCode(String sensorCode) {
-        return passwordEncoder.encode(sensorCode);
     }
 }

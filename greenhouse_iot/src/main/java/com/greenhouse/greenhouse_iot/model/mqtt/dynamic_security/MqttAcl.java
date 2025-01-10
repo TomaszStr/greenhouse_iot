@@ -1,4 +1,4 @@
-package com.greenhouse.greenhouse_iot.model.mqtt;
+package com.greenhouse.greenhouse_iot.model.mqtt.dynamic_security;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

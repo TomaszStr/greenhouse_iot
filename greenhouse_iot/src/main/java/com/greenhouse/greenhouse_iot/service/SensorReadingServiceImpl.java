@@ -1,14 +1,13 @@
 package com.greenhouse.greenhouse_iot.service;
 
 import com.greenhouse.greenhouse_iot.model.dto.SensorReadingDto;
-import com.greenhouse.greenhouse_iot.model.dto.SensorReadingMqtt;
+import com.greenhouse.greenhouse_iot.model.mqtt.sensor_reading.SensorReadingMqtt;
 import com.greenhouse.greenhouse_iot.model.entity.Sensor;
 import com.greenhouse.greenhouse_iot.model.entity.SensorReading;
 import com.greenhouse.greenhouse_iot.model.mapper.SensorReadingMapper;
 import com.greenhouse.greenhouse_iot.repository.SensorReadingRepository;
 import com.greenhouse.greenhouse_iot.repository.SensorRepository;
 import lombok.AllArgsConstructor;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

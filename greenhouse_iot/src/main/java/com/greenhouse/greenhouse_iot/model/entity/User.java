@@ -1,5 +1,6 @@
 package com.greenhouse.greenhouse_iot.model.entity;
 
+import com.greenhouse.greenhouse_iot.model.enums.Role;
 import com.greenhouse.greenhouse_iot.security.GreenhouseGrantedAuthority;
 import jakarta.persistence.*;
 import lombok.*;

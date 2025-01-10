@@ -1,5 +1,6 @@
 package com.greenhouse.greenhouse_iot.controller;
 
+import com.greenhouse.greenhouse_iot.model.dto.ChangePasswordDto;
 import com.greenhouse.greenhouse_iot.model.dto.UserDto;
 import com.greenhouse.greenhouse_iot.model.dto.auth.RegistrationRequest;
 import com.greenhouse.greenhouse_iot.model.dto.sensor.*;
@@ -37,6 +38,13 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
+    }
+
+    @PutMapping("/{userId}/password")
+    public ResponseEntity<Void> changePassword(@PathVariable Long userId,
+                                               @RequestBody ChangePasswordDto changePasswordDto) {
+        userService.changePassword(userId, changePasswordDto);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{userId}/sensors")

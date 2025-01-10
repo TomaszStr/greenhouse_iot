@@ -1,4 +1,4 @@
-package com.greenhouse.greenhouse_iot.model.entity;
+package com.greenhouse.greenhouse_iot.model.enums;
 
 import jakarta.persistence.Entity;
 

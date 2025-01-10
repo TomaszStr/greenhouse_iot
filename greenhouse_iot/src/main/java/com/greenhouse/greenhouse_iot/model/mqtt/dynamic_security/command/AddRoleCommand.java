@@ -1,9 +1,8 @@
-package com.greenhouse.greenhouse_iot.model.mqtt;
+package com.greenhouse.greenhouse_iot.model.mqtt.dynamic_security.command;
 
+import com.greenhouse.greenhouse_iot.model.mqtt.dynamic_security.MqttCommand;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.util.List;
 
 @Getter
 @Setter

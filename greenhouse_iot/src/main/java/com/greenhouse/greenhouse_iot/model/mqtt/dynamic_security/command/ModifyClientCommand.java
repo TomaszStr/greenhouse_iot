@@ -1,6 +1,6 @@
-package com.greenhouse.greenhouse_iot.model.mqtt;
+package com.greenhouse.greenhouse_iot.model.mqtt.dynamic_security.command;
 
-import com.greenhouse.greenhouse_iot.model.dto.MqttCredentials;
+import com.greenhouse.greenhouse_iot.model.mqtt.dynamic_security.MqttCommand;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,10 +8,11 @@ import lombok.Setter;
 @Setter
 public class ModifyClientCommand extends MqttCommand {
     String clientId;
-    String newPassword;
+    String password;
     public ModifyClientCommand(String clientId, String newPassword) {
         super.command = "modifyClient";
         this.clientId = clientId;
-        this.newPassword = newPassword;
+        this.password = newPassword;
     }
 }
+

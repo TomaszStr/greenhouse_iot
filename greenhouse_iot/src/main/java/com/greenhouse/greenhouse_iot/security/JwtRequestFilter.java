@@ -1,5 +1,6 @@
 package com.greenhouse.greenhouse_iot.security;
 
+import com.greenhouse.greenhouse_iot.config.PublicEndpoints;
 import com.greenhouse.greenhouse_iot.service.GreenhouseIotUserDetailsService;
 import com.greenhouse.greenhouse_iot.utils.JwtUtil;
 import jakarta.servlet.FilterChain;
@@ -25,6 +26,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final GreenhouseIotUserDetailsService greenhouseIotUserDetailsService;
+    private final PublicEndpoints publicEndpoints;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
@@ -33,6 +35,15 @@ public class JwtRequestFilter extends OncePerRequestFilter {
 
         try {
             log.info("JwtRequestFilter");
+
+            String requestURI = request.getRequestURI();
+
+            if(publicEndpoints.isPublicEndpoint(requestURI)) {
+                log.info("Skipping JWT filter for public endpoint: {}", requestURI);
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             String token = extractJwtFromRequest(request);
 
             String username = null;

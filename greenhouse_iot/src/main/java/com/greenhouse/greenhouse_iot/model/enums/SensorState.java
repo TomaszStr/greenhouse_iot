@@ -1,15 +1,16 @@
 package com.greenhouse.greenhouse_iot.model.enums;
 
-public enum SensorState {
-    NORMAL("NORMAL"),
-    FORCED("FORCED"),
-    SLEEP("SLEEP");
-    private final String state;
-    SensorState(String state) {
-        this.state = state;
-    }
+import lombok.Getter;
 
-    public String getState() {
-        return state;
+@Getter
+public enum SensorState {
+    NORMAL(0),
+    FORCED(1),
+    SLEEP(2);
+
+    private final Integer code;
+
+    private SensorState(Integer code) {
+        this.code = code;
     }
 }

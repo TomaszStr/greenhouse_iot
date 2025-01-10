@@ -1,8 +1,7 @@
 package com.greenhouse.greenhouse_iot.service;
 
 import com.greenhouse.greenhouse_iot.model.dto.SensorReadingDto;
-import com.greenhouse.greenhouse_iot.model.dto.SensorReadingMqtt;
-import com.greenhouse.greenhouse_iot.model.entity.SensorReading;
+import com.greenhouse.greenhouse_iot.model.mqtt.sensor_reading.SensorReadingMqtt;
 
 import java.time.LocalDateTime;
 import java.util.List;

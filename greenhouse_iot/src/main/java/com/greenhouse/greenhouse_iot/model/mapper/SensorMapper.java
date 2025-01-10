@@ -5,11 +5,28 @@ import com.greenhouse.greenhouse_iot.model.dto.sensor.SensorDto;
 
 import com.greenhouse.greenhouse_iot.model.entity.Sensor;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.Mappings;
 
 @Mapper(componentModel = "spring")
 public interface SensorMapper {
+    @Mappings({
+            @Mapping(target = "sensorId", source = "id"),
+            @Mapping(target = "ownerId", source = "user.id")
+    })
     SensorDto sensorToSensorDto(Sensor sensor);
-    Sensor sensorDtoToSensor(SensorDto sensorDto);
 
+//    Sensor sensorDtoToSensor(SensorDto sensorDto);
+
+    @Mappings({
+            @Mapping(target = "id", ignore = true),
+            @Mapping(target = "user", ignore = true),
+            @Mapping(target = "sensorMqttName", ignore = true),
+            @Mapping(target = "sensorName", ignore = true),
+            @Mapping(target = "height", ignore = true),
+            @Mapping(target = "soilMoistureAlertThreshold", ignore = true),
+            @Mapping(target = "temperatureAlertThreshold", ignore = true),
+            @Mapping(target = "currentState", source = "currentState")
+    })
     Sensor addSensorDtoToSensor(AddSensorDto addSensorDto);
 }

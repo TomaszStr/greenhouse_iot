@@ -1,6 +1,6 @@
 package com.greenhouse.greenhouse_iot.security;
 
-import com.greenhouse.greenhouse_iot.model.entity.Role;
+import com.greenhouse.greenhouse_iot.model.enums.Role;
 import org.springframework.security.core.GrantedAuthority;
 
 public class GreenhouseGrantedAuthority implements GrantedAuthority {

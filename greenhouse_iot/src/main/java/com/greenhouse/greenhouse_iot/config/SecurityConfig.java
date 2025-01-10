@@ -23,7 +23,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @AllArgsConstructor
 public class SecurityConfig {
     private final JwtRequestFilter jwtRequestFilter;
-
+    private final PublicEndpoints publicEndpoints;
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception{
         httpSecurity
@@ -32,14 +32,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/public/**",
-                                "/auth/login",
-                                "/users/register",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html"
-                        ).permitAll()
+                        .requestMatchers(publicEndpoints.getEndpoints().toArray(new String[0])).permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exception -> exception

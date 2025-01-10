@@ -59,6 +59,8 @@ public class SecurityService {
      * @return true if the user is the owner, otherwise false
      */
     public boolean isOwner(User user, Sensor sensor) {
+        if(user == null || sensor == null || sensor.getUser() == null)
+            return false;
         return Objects.equals(user.getId(), sensor.getUser().getId());
     }
 

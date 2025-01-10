@@ -1,5 +1,6 @@
 package com.greenhouse.greenhouse_iot.model.entity;
 
+import com.greenhouse.greenhouse_iot.model.enums.SensorState;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -40,6 +41,7 @@ public class Sensor {
     @Column(name = "temperature_alert_threshold")
     Integer temperatureAlertThreshold;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "current_state", nullable = false)
-    String currentState;
+    SensorState currentState;
 }

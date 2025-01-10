@@ -31,14 +31,14 @@ public class AuthenticationController {
     private final GreenhouseIotUserDetailsService userDetailsService;
 
     @PostMapping("/login")
-    public ResponseEntity<?> createAuthenticationToken(@RequestBody LoginRequest loginRequest) throws Exception {
+    public ResponseEntity<?> createAuthenticationToken(@RequestBody LoginRequest loginRequest) {
         try {
             log.info("Authenticating login request");
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
         } catch (BadCredentialsException e) {
             log.error("Exception - bad credentials: " + e.getMessage());
-            throw new Exception("Incorrect username or password", e);
+            throw new BadCredentialsException("Incorrect username or password", e);
         }
 
         final UserDetails userDetails = userDetailsService.loadUserByUsername(loginRequest.getUsername());
@@ -48,6 +48,6 @@ public class AuthenticationController {
         log.info("Authentication successful, logged user: {}, id: {} roles: {}",
                 user.getUsername(), user.getId(), user.getRoles());
 
-        return ResponseEntity.ok(new AuthenticationResponse(jwt));
+        return ResponseEntity.ok(new AuthenticationResponse(jwt, user.getId(), user.getUsername(), user.getRoles()));
     }
 }
