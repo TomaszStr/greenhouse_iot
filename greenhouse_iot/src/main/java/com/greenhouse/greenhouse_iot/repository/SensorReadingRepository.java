@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface SensorReadingRepository extends JpaRepository<SensorReading, Long> {
-    // Custom query to find sensor readings by sensor ID within a time range
     @Query("SELECT s FROM sensor_readings s WHERE s.sensor.id = :sensorId AND s.timestamp BETWEEN :startTime AND :endTime")
     List<SensorReading> findSensorReadingsBySensorId(
             @Param("sensorId") Long sensorId,

@@ -76,11 +76,19 @@ public class MqttService {
             @Override
             public void connectComplete(boolean reconnect, String serverURI) {
                 log.info("MQTT connected,  reconnect: {},  sever URI:{}", reconnect, serverURI);
+                try {
+                    for(var topic : subscribedTopics) {
+                        log.info("Resubscribe to topic after reconnect: {}", topic);
+                        mqttClient.subscribe(topic);
+                    }
+                } catch (MqttException e) {
+                    throw new RuntimeException(e);
+                }
             }
 
             @Override
             public void connectionLost(Throwable cause) {
-                log.error("MQTT connection lost: {}", cause.getMessage());
+                log.error("MQTT connection lost, cause: {}", cause.getMessage());
             }
 
             @Override
@@ -119,12 +127,12 @@ public class MqttService {
     @PostConstruct
     public void initialize() throws MqttException {
         subscribeToTopic("devices/+/data", 0);
-        subscribeToTopic(this.mqttDynamicSecurityTopic, 2);
+        subscribeToTopic(this.mqttDynamicSecurityTopic, 0);
     }
 
     public void subscribeToTopic(String topic, Integer qos) throws MqttException {
         if (!subscribedTopics.contains(topic)) {
-            mqttClient.subscribe(topic);
+            mqttClient.subscribe(topic,qos);
             subscribedTopics.add(topic);
             log.info("Subscribed to topic: {}", topic);
         }
@@ -192,52 +200,24 @@ public class MqttService {
         String topic = "devices/" + sensorMqttName + "/commands";
         MqttSensorCommand command = new MqttSensorCommand(MqttSensorCommandType.SET_READING_PERIOD, readingPeriod);
         return sendMqttSensorCommand(command, topic);
-//        String payload = String.format("{\"command\": \"setReadingPeriod\", \"period\": %d}", readingPeriod);
-//        try {
-//            publishMessage(topic, payload, 0);
-//            return true;
-//        } catch (MqttException e) {
-//            throw new RuntimeException(e);
-//        }
     }
 
     public Boolean setSensorState(String sensorMqttName, SensorState sensorState){
         String topic = "devices/" + sensorMqttName + "/commands";
         MqttSensorCommand command = new MqttSensorCommand(MqttSensorCommandType.SET_STATE, sensorState.getCode());
         return sendMqttSensorCommand(command, topic);
-//        String payload = String.format("{\"command\": \"setState\", \"state\": \"%s\"}", sensorState.getState());
-//        try {
-//            publishMessage(topic, payload, 0);
-//            return true;
-//        } catch (MqttException e) {
-//            throw new RuntimeException(e);
-//        }
     }
 
     public Boolean setSensorHeight(String sensorMqttName, Integer height){
         String topic = "devices/" + sensorMqttName + "/commands";
         MqttSensorCommand command = new MqttSensorCommand(MqttSensorCommandType.SET_HEIGHT, height);
         return sendMqttSensorCommand(command, topic);
-//        String payload = String.format("{\"command\": \"setHeight\", \"height\": %d}", height);
-//        try {
-//            publishMessage(topic, payload, 0);
-//            return true;
-//        } catch (MqttException e) {
-//            throw new RuntimeException(e);
-//        }
     }
 
     public boolean setSoilMoistureAlertThreshold(String sensorMqttName, Integer threshold) {
         String topic = "devices/" + sensorMqttName + "/commands";
         MqttSensorCommand command = new MqttSensorCommand(MqttSensorCommandType.SET_SOIL_MOISTURE_ALERT_THRESHOLD, threshold);
         return sendMqttSensorCommand(command, topic);
-//        String payload = String.format("{\"command\": \"setSoilMoistureAlertThreshold\", \"soilMoistureAlertThreshold\": %d}", threshold);
-//        try {
-//            publishMessage(topic, payload, 0);
-//            return true;
-//        } catch (MqttException e) {
-//            throw new RuntimeException(e);
-//        }
     }
 
     private boolean sendMqttSensorCommand(MqttSensorCommand mqttSensorCommand, String topic) {
@@ -254,13 +234,12 @@ public class MqttService {
         String topic = "devices/" + sensorMqttName + "/commands";
         MqttSensorCommand command = new MqttSensorCommand(MqttSensorCommandType.SET_TEMPERATURE_ALERT_THRESHOLD, threshold);
         return sendMqttSensorCommand(command, topic);
-//        String payload = String.format("{\"command\": \"setTemperatureAlertThreshold\", \"temperatureAlertThreshold\": %d}", threshold);
-//        try {
-//            publishMessage(topic, payload, 0);
-//            return true;
-//        } catch (MqttException e) {
-//            throw new RuntimeException(e);
-//        }
+    }
+
+    public boolean setTemperatureActionThreshold(String sensorMqttName, Integer threshold) {
+        String topic = "devices/" + sensorMqttName + "/commands";
+        MqttSensorCommand command = new MqttSensorCommand(MqttSensorCommandType.SET_TEMPERATURE_ACTION_THRESHOLD, threshold);
+        return sendMqttSensorCommand(command, topic);
     }
 
     public String getMqttBrokerUrl(){

@@ -58,8 +58,9 @@ static void wifi_event_handler(void *event_handler_arg, esp_event_base_t event_b
             connection_failed = true;
             if (blink_task_handle != NULL) {
                 ESP_LOGI("WiFi", "Deleting blink task");
-                vTaskDelete(blink_task_handle);  // Usuwamy zadanie
-                blink_task_handle = NULL;  // Resetujemy uchwyt zadania
+                vTaskDelete(blink_task_handle);
+                blink_task_handle = NULL;
+                
             }
             ESP_LOGE(TAG, "Failed to connect to Wi-Fi after %d retries", MAX_RETRIES);
         }
@@ -149,6 +150,7 @@ void init_wifi_connection(char* ssid, char* password){
         ESP_LOGI("WiFi", "Deleting blink task");
         vTaskDelete(blink_task_handle);
         blink_task_handle = NULL;
+        gpio_set_level(LED_GPIO, 0);
     }
     xTaskCreate(&blink_led_task, "blink_led_task", 2048, NULL, 5, &blink_task_handle);
 }

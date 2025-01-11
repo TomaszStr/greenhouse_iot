@@ -12,6 +12,7 @@
 #include "driver/i2c.h"
 
 #include "mqtt_client.h"
+#include "esp_http_client.h"
 
 #include "esp_netif_sntp.h"
 #include "time.h"
@@ -106,7 +107,7 @@ uint64_t get_timestamp(){
 
 static int current_working_state = SENSOR_STATE_NORMAL;
 static int height = 0;
-static int  measurement_period_ms = 1000;
+static int  measurement_period_ms = 20000;
 static int soil_moisture_alert_threshold = 10;
 static int temperature_alert_threshold = 3;
 
@@ -342,6 +343,9 @@ TaskHandle_t config_monitor_task_handle = NULL;
 void monitor_config_process();
 void start_wifi();
 
+void start_mqtt();
+void stop_mqtt();
+
 // Funkcja aktywująca tryb konfiguracyjny
 void enter_config_mode() {
     ESP_LOGI(TAG, "Entering configuration mode...");
@@ -358,25 +362,23 @@ void exit_config_mode(){
         stop_wifi_connection();
     }
     else if(current_state == CONFIGURATION_WIFI_CONNECTED){
-        stop_mqtt_connection();
+        stop_mqtt();
     }
     vTaskDelete(config_monitor_task_handle);
     current_state = RUNNING;
     start_wifi();
 }
 
-bool read_config_data_from_nvs(){
+bool read_wifi_config_data_from_nvs(){
     nvs_handle_t nvs_handle;
     esp_err_t ret;
 
-    // Otwórz przestrzeń nazw "config" w NVS w trybie tylko do odczytu
     ret = nvs_open("config", NVS_READONLY, &nvs_handle);
     if (ret != ESP_OK) {
         ESP_LOGE("NVS", "Error opening NVS handle: %s", esp_err_to_name(ret));
         return false;
     }
 
-    // Odczyt SSID
     size_t ssid_len = WIFI_SSID_MAX_LENGTH;
     if (nvs_get_str(nvs_handle, "ssid", wifi_ssid, &ssid_len) != ESP_OK) {
         ESP_LOGW("NVS", "SSID not found in NVS");
@@ -385,7 +387,6 @@ bool read_config_data_from_nvs(){
     }
     ESP_LOGI("NVS", "wifi_ssid: %s",wifi_ssid);
 
-    // Odczyt hasła
     size_t password_len = WIFI_PASSWORD_MAX_LEN;
     if (nvs_get_str(nvs_handle, "password", wifi_password, &password_len) != ESP_OK) {
         ESP_LOGW("NVS", "Password not found in NVS");
@@ -401,6 +402,49 @@ bool read_config_data_from_nvs(){
     //     nvs_close(nvs_handle);
     //     return false;
     // }
+
+    // size_t mqtt_username_len =  MQTT_USERNAME_MAX_LEN;
+    // if (nvs_get_str(nvs_handle, "mqtt_username", mqtt_username, &mqtt_username_len) != ESP_OK) {
+    //     ESP_LOGW("NVS", "MQTT username not found in NVS");
+    //     nvs_close(nvs_handle);
+    //     return false;
+    // }
+
+    // snprintf(mqtt_measurements_topic, sizeof(mqtt_measurements_topic), "devices/%s/data", mqtt_username);
+    // snprintf(mqtt_commands_topic, sizeof(mqtt_commands_topic), "devices/%s/commands", mqtt_username);
+    // ESP_LOGI("NVS", "mqtt_username: %s, measurements topic: %s, commands topic: %s",mqtt_username, mqtt_measurements_topic, mqtt_commands_topic);
+
+    // size_t mqtt_password_len =  MQTT_PASSWORD_MAX_LEN;
+    // if (nvs_get_str(nvs_handle, "mqtt_password", mqtt_password, &mqtt_password_len) != ESP_OK) {
+    //     ESP_LOGW("NVS", "MQTT password not found in NVS");
+    //     nvs_close(nvs_handle);
+    //     return false;
+    // }
+    // ESP_LOGI("NVS", "mqtt_password: %s",mqtt_password);
+
+    // size_t mqtt_url_len =  MQTT_URL_MAX_LEN;
+    // if (nvs_get_str(nvs_handle, "mqtt_url", mqtt_url, &mqtt_url_len) != ESP_OK) {
+    //     ESP_LOGW("NVS", "MQTT URL not found in NVS");
+    //     nvs_close(nvs_handle);
+    //     return false;
+    // }
+    // ESP_LOGI("NVS", "mqtt_url: %s",mqtt_url);
+
+    nvs_close(nvs_handle);
+    ESP_LOGI("NVS", "Config data loaded successfully.");
+
+    return true;
+}
+
+bool read_mqtt_config_data_from_nvs() {
+    nvs_handle_t nvs_handle;
+    esp_err_t ret;
+
+    ret = nvs_open("config", NVS_READONLY, &nvs_handle);
+    if (ret != ESP_OK) {
+        ESP_LOGE("NVS", "Error opening NVS handle: %s", esp_err_to_name(ret));
+        return false;
+    }
 
     size_t mqtt_username_len =  MQTT_USERNAME_MAX_LEN;
     if (nvs_get_str(nvs_handle, "mqtt_username", mqtt_username, &mqtt_username_len) != ESP_OK) {
@@ -484,11 +528,17 @@ void configure_button_gpio() {
     ESP_LOGI(TAG, "Button GPIO configured (GPIO %d)", BUTTON_GPIO);
 }
 
-bool check_config_data(){
+bool check_wifi_config_data(){
     if(strlen(wifi_ssid) == 0){
         ESP_LOGE(TAG, "Empty SSID");
         return false;
     }
+
+    ESP_LOGI(TAG, "WIFI configuration data correct");
+    return true;
+}
+
+bool check_mqtt_config_data(){
     if(strlen(mqtt_username) == 0){
         ESP_LOGE(TAG, "Empty MQTT username");
         return false;
@@ -501,17 +551,13 @@ bool check_config_data(){
         ESP_LOGE(TAG, "Empty MQTT URL");
         return false;
     }
-    // if(strlen(user_value) == 0){
-    //     ESP_LOGE(TAG, "Empty user name");
-    //     return false;
-    // }
-    ESP_LOGI(TAG, "Configuration data correct");
+    ESP_LOGI(TAG, "MQTT configuration data correct");
     return true;
 }
 
 void start_wifi(){
-    if(read_config_data_from_nvs()){
-        if(check_config_data()){
+    if(read_wifi_config_data_from_nvs()){
+        if(check_wifi_config_data()){
             wifi_on = true;
             ESP_LOGI(TAG, "Configuration data correct - initializing WiFi connection");
             init_wifi_connection(wifi_ssid, wifi_password);
@@ -543,30 +589,26 @@ int mqtt_reconnect_count = 0;
 
 char mqtt_json_data[256];
 
-// char mqtt_url[128] = {0};
-// char mqtt_username[64] = {0};
-// char mqtt_password[64] = {0};
-
-esp_err_t parse_mqtt_cmd_json_message(const char *message, int *command_out, int *value_out) {
+esp_err_t parse_mqtt_cmd_json_message(const char *message, int *command_code_int, int *value_int) {
     cJSON *root = cJSON_Parse(message);
     if (!root) {
         ESP_LOGE(TAG, "Error parsing JSON: %s", cJSON_GetErrorPtr());
         return ERROR;
     }
 
-    cJSON *command = cJSON_GetObjectItem(root, "command");
+    cJSON *command_code = cJSON_GetObjectItem(root, "command_code");
     cJSON *value = cJSON_GetObjectItem(root, "value");
 
-    if (!cJSON_IsNumber(command) || !cJSON_IsNumber(value)) {
-        ESP_LOGW(TAG, "Invalid JSON structure. 'command' or 'value' missing or not a number.");
+    if (!cJSON_IsNumber(command_code) || !cJSON_IsNumber(value)) {
+        ESP_LOGW(TAG, "Invalid JSON structure. 'command_code' or 'value' missing or not a number.");
         cJSON_Delete(root);
         return ERROR;
     }
 
-    *command_out = command->valueint;
-    *value_out = value->valueint;
+    *command_code_int = command_code->valueint;
+    *value_int = value->valueint;
 
-    ESP_LOGI(TAG, "Parsed JSON - Command: %d, Value: %d", *command_out, *value_out);
+    ESP_LOGI(TAG, "Parsed JSON - Command: %d, Value: %d", *command_code_int, *value_int);
 
     cJSON_Delete(root);
     return SUCCESS;
@@ -611,6 +653,7 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
     int msg_id;
+    int sub_ret;
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         mqtt_connected = true;
@@ -618,20 +661,9 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
         greenhouse_mqtt_client = client;
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
 
-        ESP_LOGI(TAG, "Subscribe to commands topic");
-        esp_mqtt_client_subscribe_single(greenhouse_mqtt_client, mqtt_commands_topic, 2);
-        // xTaskCreate(voltage_mqtt_task, "voltage_mqtt_task", 4096, NULL, 5, NULL);
-        // msg_id = esp_mqtt_client_publish(client, "/topic/qos1", "data_3", 0, 1, 0);
-        // ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
-
-        // msg_id = esp_mqtt_client_subscribe(client, "/topic/qos0", 0);
-        // ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
-
-        // msg_id = esp_mqtt_client_subscribe(client, "/topic/qos1", 1);
-        // ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
-
-        // msg_id = esp_mqtt_client_unsubscribe(client, "/topic/qos1");
-        // ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", msg_id);
+        ESP_LOGI(TAG, "Subscribe to commands topic: %s", mqtt_commands_topic);
+        sub_ret = esp_mqtt_client_subscribe_single(greenhouse_mqtt_client, mqtt_commands_topic, 0);
+        ESP_LOGI(TAG, "Subscribe result: %d", sub_ret);
         break;
     case MQTT_EVENT_DISCONNECTED:
         mqtt_connected = false;
@@ -639,7 +671,6 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
         if(mqtt_reconnect_count > 10){
             mqtt_failure = true;
             ESP_LOGI(TAG, "MQTT connection failed...");
-            stop_mqtt_connection();
         }
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED, retry count=%d",mqtt_reconnect_count);
         break;
@@ -665,12 +696,12 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
             return;
         }
 
-        int command_int = 0;
+        int command_code_int = 0;
         int value_int = 0;
-        if(parse_mqtt_cmd_json_message(message, &command_int, &value_int)){
-            switch (command_int) {
+        if(parse_mqtt_cmd_json_message(message, &command_code_int, &value_int) == SUCCESS){
+            switch (command_code_int) {
                 case(MQTT_CMD_SET_SET_SENSOR_STATE):
-                    ESP_LOGI(TAG, "Switch sensor state to %d ms.", value_int);
+                    ESP_LOGI(TAG, "Switch sensor state to %d", value_int);
                     switch_sensor_state(value_int);
                     break;
 
@@ -699,7 +730,7 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
                     break;
 
                 default:
-                    ESP_LOGI(TAG, "Unknown MQTT command id:%d", command_int);
+                    ESP_LOGI(TAG, "Unknown MQTT command id:%d", command_code_int);
                     break;
             }
         }
@@ -709,9 +740,6 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
         if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
-            // log_error_if_nonzero("reported from esp-tls", event->error_handle->esp_tls_last_esp_err);
-            // log_error_if_nonzero("reported from tls stack", event->error_handle->esp_tls_stack_err);
-            // log_error_if_nonzero("captured as transport's socket errno",  event->error_handle->esp_transport_sock_errno);
             ESP_LOGI(TAG, "Last errno string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
         }
         break;
@@ -734,20 +762,31 @@ bool check_mqtt_started(){
 }
 
 void start_mqtt(){
-    ESP_LOGI(TAG, "MQTT Config: URL=%s, Username=%s", mqtt_url, mqtt_username);
-    mqtt_started = true;
-    esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.uri = mqtt_url,
-        .credentials.username = mqtt_username,
-        .credentials.authentication.password = mqtt_password,
-    };
-    ESP_LOGI(TAG, "MQTT initialize mqtt_client");
-    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
-    /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
-    ESP_LOGI(TAG, "MQTT register event handler");
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
-    ESP_LOGI(TAG, "MQTT start client");
-    esp_mqtt_client_start(client);
+    if(read_mqtt_config_data_from_nvs()) {
+        if(check_mqtt_config_data()) {
+            ESP_LOGI(TAG, "MQTT Config: URL=%s, Username=%s, Password=%s", mqtt_url, mqtt_username, mqtt_password);
+            mqtt_started = true;
+            esp_mqtt_client_config_t mqtt_cfg = {
+                .broker.address.uri = mqtt_url,
+                .credentials.username = mqtt_username,
+                .credentials.authentication.password = mqtt_password,
+            };
+            ESP_LOGI(TAG, "MQTT initialize mqtt_client");
+            greenhouse_mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
+
+            ESP_LOGI(TAG, "MQTT register event handler");
+            esp_mqtt_client_register_event(greenhouse_mqtt_client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+
+            ESP_LOGI(TAG, "MQTT start client");
+            esp_mqtt_client_start(greenhouse_mqtt_client);
+        }
+        else {
+            ESP_LOGI(TAG, "Configuration data incorrect - starting MQTT failed");
+        }
+    }
+    else {
+        ESP_LOGI(TAG, "Configuration data not found in NVS - starting MQTT failed");
+    }
 }
 
 void stop_mqtt() {
@@ -844,7 +883,7 @@ void reading_task(){
 
 
                     int length = snprintf(mqtt_json_data, sizeof(mqtt_json_data),
-                        "{\"timestamp\": %lld, \"light_intensity\": %d, \"soil_moisture\": %d, \"pressure\": \"%s\", \"temperature\": \"%s\", \"humidity\": \"%s\"}",
+                        "{\"timestamp\": %lld, \"light_intensity\": %d, \"soil_moisture\": %d, \"pressure\": %s, \"temperature\": %s, \"humidity\": %s}",
                         (uint64_t)now, light_intensity_value, soil_moisture_value, pressure, temperature, humidity);
 
                     if (length < 0 || length >= sizeof(mqtt_json_data)) {
@@ -943,35 +982,183 @@ void temperature_monitoring_task(){
 ===================================================================================
 */
 
+#define SENSOR_ID ((long long) 2)
+#define SENSOR_AUTH_CODE "sensorCode2"
+long long owner_id = 1;
+char* server_url = "http://192.168.137.1:8080";
+// char* sensor_name = "sensor2";
+
+typedef struct {
+    char mqttBrokerUrl[128];
+    char mqttUsername[64];
+    char mqttPassword[64];
+} PairSensorDto;
+
+void save_mqtt_credentials_to_nvs(const char* mqttBrokerUrl, const char* mqttUsername, const char* mqttPassword){
+    ESP_LOGI("NVS", "Save mqtt credentials to NVS");
+    nvs_handle_t nvs_handle;
+    esp_err_t err;
+
+    err = nvs_open("config", NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE("NVS", "Error opening NVS handle: %s", esp_err_to_name(err));
+        return;
+    }
+
+    if (mqttBrokerUrl) {
+        err = nvs_set_str(nvs_handle, "mqtt_url", mqttBrokerUrl);
+        if (err != ESP_OK) {
+            ESP_LOGE("NVS", "Failed to save MQTT URL: %s", esp_err_to_name(err));
+        }
+    }
+
+    if (mqttUsername) {
+        err = nvs_set_str(nvs_handle, "mqtt_username", mqttUsername);
+        if (err != ESP_OK) {
+            ESP_LOGE("NVS", "Failed to save MQTT username: %s", esp_err_to_name(err));
+        }
+    }
+
+    if (mqttPassword) {
+        err = nvs_set_str(nvs_handle, "mqtt_password", mqttPassword);
+        if (err != ESP_OK) {
+            ESP_LOGE("NVS", "Failed to save MQTT password: %s", esp_err_to_name(err));
+        }
+    }
+    
+    err = nvs_commit(nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE("NVS", "Failed to commit changes: %s", esp_err_to_name(err));
+    }
+
+    nvs_close(nvs_handle);
+    ESP_LOGI("NVS", "Configuration values saved successfully.");
+}
+
+#define RESPONSE_BUFFER_SIZE 2048
+
+static char response_buffer[RESPONSE_BUFFER_SIZE];
+
+int response_length  = 0;
+
+int response_ready = 0;
+
+esp_err_t http_event_handler(esp_http_client_event_t *evt) {
+    switch (evt->event_id) {
+        case HTTP_EVENT_ON_DATA:
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+            
+            if ((response_length + evt->data_len) < RESPONSE_BUFFER_SIZE) {
+                memcpy(response_buffer + response_length, evt->data, evt->data_len);
+                response_length += evt->data_len;
+            } else {
+                ESP_LOGE(TAG, "Response buffer overflow, truncating data");
+            }
+            break;
+
+        case HTTP_EVENT_ON_FINISH:
+            if (response_length < RESPONSE_BUFFER_SIZE) {
+                response_buffer[response_length] = '\0';
+            } else {
+                response_buffer[RESPONSE_BUFFER_SIZE - 1] = '\0';
+            }
+            response_ready = 1;
+            ESP_LOGI(TAG, "HTTP response received, total length: %d", response_length);
+            break;
+
+        case HTTP_EVENT_ERROR:
+            ESP_LOGE(TAG, "HTTP_EVENT_ERROR");
+            break;
+
+        default:
+            break;
+    }
+    return ESP_OK;
+}
+
+esp_err_t send_pairing_dto_to_server() {
+    esp_err_t err = SUCCESS;
+
+    char url[256];
+    snprintf(url, sizeof(url), "%s/api/users/%lld/sensors", server_url, owner_id);
+
+    char post_data[128];
+    snprintf(post_data, sizeof(post_data), "{\"sensorId\":%lld,\"sensorCode\":\"%s\"}", SENSOR_ID, SENSOR_AUTH_CODE);
+
+    memset(response_buffer, 0, sizeof(response_buffer));
+    response_length = 0;
+
+    esp_http_client_config_t config = {
+        .url = url,
+        .method = HTTP_METHOD_PUT,
+        .event_handler = http_event_handler,
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (client == NULL) {
+        ESP_LOGE(TAG, "Failed to initialize HTTP client");
+        return ESP_FAIL;
+    }
+    
+    err += esp_http_client_set_header(client, "Content-Type", "application/json");
+    err += esp_http_client_set_post_field(client, post_data, strlen(post_data));
+
+    response_ready = false;
+
+    err += esp_http_client_perform(client);
+
+    if (err == ESP_OK) {
+        int status = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "HTTP PUT Status = %d,", status);
+
+        err += (status == HttpStatus_Ok ? SUCCESS : FAIL);
+
+        while(!response_ready){}
+
+        ESP_LOGI(TAG, "Complete Response: %s", response_buffer);
+
+
+        cJSON *json = cJSON_Parse(response_buffer);
+        if (json == NULL) {
+            ESP_LOGE(TAG, "Failed to parse JSON response");
+        } else {
+            const cJSON *mqttBrokerUrl = cJSON_GetObjectItem(json, "mqttBrokerUrl");
+            const cJSON *mqttUsername = cJSON_GetObjectItem(json, "mqttUsername");
+            const cJSON *mqttPassword = cJSON_GetObjectItem(json, "mqttPassword");
+
+            if (mqttBrokerUrl && mqttUsername && mqttPassword) {
+                save_mqtt_credentials_to_nvs(
+                    mqttBrokerUrl->valuestring,
+                    mqttUsername->valuestring,
+                    mqttPassword->valuestring);
+            } else {
+                err += FAIL;
+                ESP_LOGE(TAG, "Missing fields in JSON response");
+            }
+
+            cJSON_Delete(json);
+        }
+    } else {
+        ESP_LOGE(TAG, "HTTP request failed: %s", esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+    return err;
+}
+
 void monitor_config_process(){
     wifi_on=false;
     ble_on = true;
     bool no_stop = true;
     current_state = CONFIGURATION_INIT;
     while(no_stop) {
-        // // CONFIG DONE -> TURN ON WiFI
-        // if(!wifi_on && check_ble_config_done()){
-        //     start_wifi();
-        // }
-        // else if(wifi_on && check_failure() && check_ble_config_done()){
-        //     notify_ble_config_failure();
-        //     stop_wifi_connection();
-        //     wifi_on = false;
-        
-        // }
-        // else if(wifi_on && wifi_check_connection() && check_ble_config_done()){
-        //     notify_ble_config_success();
-        //     ble_server_stop();
-        //     no_stop = false;
-        // }
-
         if(current_state == CONFIGURATION_INIT && check_ble_config_done()){
             ESP_LOGI(TAG, "After config confirmed - Enter configuration-confirmed state...");
             current_state = CONFIGURATION_CONFIRMED;
             start_wifi();    
         }
         else if(current_state == CONFIGURATION_CONFIRMED && wifi_check_failure()){
-            ESP_LOGI(TAG, "After WiFi failure - Return to configuration-init state...");
+            ESP_LOGW(TAG, "After WiFi failure - Return to configuration-init state...");
             current_state = CONFIGURATION_INIT;
             notify_ble_config_failure();
             stop_wifi_connection();
@@ -979,13 +1166,19 @@ void monitor_config_process(){
         else if(current_state == CONFIGURATION_CONFIRMED && wifi_check_connection()){
             ESP_LOGI(TAG, "After WiFi connection success - Enter configuration-wifi-connected state...");
             current_state = CONFIGURATION_WIFI_CONNECTED;
-            start_mqtt();
+            if(send_pairing_dto_to_server() == SUCCESS) {
+                ESP_LOGI(TAG, "Successfully sent pairing DTO, start mqtt");
+                start_mqtt();
+            }
+            else {
+                ESP_LOGW(TAG, "Sending pairing DTO failed");
+            }
         }
         else if(current_state == CONFIGURATION_WIFI_CONNECTED && mqtt_check_failure()){
-            ESP_LOGI(TAG, "After MQTT connection failure - Return to configuration-init state...");
+            ESP_LOGW(TAG, "After MQTT connection failure - Return to configuration-init state...");
             current_state = CONFIGURATION_INIT;
             notify_ble_config_failure();
-            stop_mqtt(greenhouse_mqtt_client);
+            stop_mqtt();
             stop_wifi_connection();
         }
         else if(current_state == CONFIGURATION_WIFI_CONNECTED && mqtt_check_connection()){

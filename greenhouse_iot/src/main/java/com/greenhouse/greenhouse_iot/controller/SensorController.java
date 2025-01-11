@@ -66,8 +66,14 @@ public class SensorController {
 
     @PutMapping("/{sensorId}/temperature_alert_threshold")
     public ResponseEntity<Boolean> changeTemperatureAlertThreshold(@PathVariable Long sensorId,
-                                                   @RequestBody ChangeTemperatureAlertThresholdDto changeTemperatureAlertThresholdDto) {
-        return ResponseEntity.ok(sensorService.changeTemperatureAlertThreshold(sensorId, changeTemperatureAlertThresholdDto));
+                                                   @RequestBody ChangeTemperatureThresholdDto changeTemperatureThresholdDto) {
+        return ResponseEntity.ok(sensorService.changeTemperatureAlertThreshold(sensorId, changeTemperatureThresholdDto));
+    }
+
+    @PutMapping("/{sensorId}/temperature_action_threshold")
+    public ResponseEntity<Boolean> changeTemperatureActionThreshold(@PathVariable Long sensorId,
+                                                                   @RequestBody ChangeTemperatureThresholdDto changeTemperatureThresholdDto) {
+        return ResponseEntity.ok(sensorService.changeTemperatureActionThreshold(sensorId, changeTemperatureThresholdDto));
     }
 
     @GetMapping("/{sensorId}/readings")

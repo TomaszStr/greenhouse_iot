@@ -53,18 +53,18 @@ public class UserController {
     }
 
     @PutMapping("/{userId}/sensors")
-    public ResponseEntity<SensorDto> assignSensorToUser(
+    public ResponseEntity<PairSensorDto> assignSensorToUser(
             @PathVariable Long userId,
             @RequestBody AssignSensorToUserDto assignSensorToUserDto) {
         return ResponseEntity.ok(sensorService.assignSensorToUser(userId, assignSensorToUserDto));
     }
 
-    @GetMapping("/{userId}/sensors/{sensorId}")
-    public ResponseEntity<PairSensorDto> pairSensor(
-            @PathVariable Long userId,
-            @PathVariable Long sensorId) {
-        return ResponseEntity.ok(sensorService.pairSensor(userId, sensorId));
-    }
+//    @GetMapping("/{userId}/sensors/{sensorId}")
+//    public ResponseEntity<PairSensorDto> pairSensor(
+//            @PathVariable Long userId,
+//            @PathVariable Long sensorId) {
+//        return ResponseEntity.ok(sensorService.pairSensor(userId, sensorId));
+//    }
 
     @DeleteMapping("/{userId}/sensors/{sensorId}")
     public ResponseEntity<Boolean> disconnectSensorFromUser(

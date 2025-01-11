@@ -8,7 +8,7 @@ public interface SensorService {
     List<SensorDto> getSensors();
     SensorDto getSensorById(Long id);
     SensorDto addSensor(AddSensorDto addSensorDto);
-    SensorDto assignSensorToUser(Long userId, AssignSensorToUserDto assignSensorToUserDto);
+    PairSensorDto assignSensorToUser(Long userId, AssignSensorToUserDto assignSensorToUserDto);
     PairSensorDto pairSensor(Long userId, Long sensorId);
     Boolean disconnectSensorFromUser(Long userId, Long sensorId, DisconnectSensorFromUserDto disconnectSensorFromUserDto);
     Boolean changeSensorName(Long sensorId, ChangeSensorNameDto changeSensorNameDto);
@@ -16,6 +16,7 @@ public interface SensorService {
     Boolean changeSensorState(Long sensorId, ChangeSensorStateDto changeSensorStateDto);
     Boolean changeSensorHeight(Long sensorId, ChangeSensorHeightDto changeSensorHeightDto);
     Boolean changeSoilMoistureAlertThreshold(Long sensorId, ChangeSoilMoistureAlertThresholdDto changeSoilMoistureAlertThresholdDto);
-    Boolean changeTemperatureAlertThreshold(Long sensorId, ChangeTemperatureAlertThresholdDto changeTemperatureAlertThresholdDto);
+    Boolean changeTemperatureAlertThreshold(Long sensorId, ChangeTemperatureThresholdDto changeTemperatureThresholdDto);
+    Boolean changeTemperatureActionThreshold(Long sensorId, ChangeTemperatureThresholdDto changeTemperatureThresholdDto);
     List<SensorDto> getSensorsByUserId(Long userId);
 }
