@@ -2,11 +2,15 @@ package com.greenhouse.greenhouse_iot.service;
 
 import com.greenhouse.greenhouse_iot.exception.ResourceNotFoundException;
 import com.greenhouse.greenhouse_iot.model.dto.SensorReadingDto;
+import com.greenhouse.greenhouse_iot.model.entity.SensorAlert;
 import com.greenhouse.greenhouse_iot.model.entity.User;
+import com.greenhouse.greenhouse_iot.model.mapper.SensorAlertMapper;
+import com.greenhouse.greenhouse_iot.model.mqtt.alert.MqttSensorAlert;
 import com.greenhouse.greenhouse_iot.model.mqtt.sensor_reading.SensorReadingMqtt;
 import com.greenhouse.greenhouse_iot.model.entity.Sensor;
 import com.greenhouse.greenhouse_iot.model.entity.SensorReading;
 import com.greenhouse.greenhouse_iot.model.mapper.SensorReadingMapper;
+import com.greenhouse.greenhouse_iot.repository.SensorAlertRepository;
 import com.greenhouse.greenhouse_iot.repository.SensorReadingRepository;
 import com.greenhouse.greenhouse_iot.repository.SensorRepository;
 import lombok.AllArgsConstructor;
@@ -23,7 +27,9 @@ public class SensorReadingServiceImpl implements SensorReadingService {
 
     private final SensorRepository sensorRepository;
     private final SensorReadingRepository sensorReadingRepository;
+    private final SensorAlertRepository sensorAlertRepository;
     private final SensorReadingMapper sensorReadingMapper;
+    private final SensorAlertMapper sensorAlertMapper;
     private final SecurityService securityService;
 
     @Override
@@ -47,6 +53,16 @@ public class SensorReadingServiceImpl implements SensorReadingService {
         reading.setSensor(sensor);
         reading = sensorReadingRepository.save(reading);
         return reading.getId() != null;
+    }
+
+    @Override
+    public Boolean addMqttAlert(MqttSensorAlert mqttSensorAlert) {
+        SensorAlert alert = sensorAlertMapper.mqttSensorAlertToSensorAlert(mqttSensorAlert);
+        Sensor sensor = sensorRepository.findByMqttName(mqttSensorAlert.getSensorMqttName());
+        alert.setSensor(sensor);
+        alert.setUser(sensor.getUser());
+        alert = sensorAlertRepository.save(alert);
+        return alert.getId() != null;
     }
 
     @Override

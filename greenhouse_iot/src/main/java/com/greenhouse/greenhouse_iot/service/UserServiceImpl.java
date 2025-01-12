@@ -1,12 +1,16 @@
 package com.greenhouse.greenhouse_iot.service;
 
 import com.greenhouse.greenhouse_iot.model.dto.ChangePasswordDto;
+import com.greenhouse.greenhouse_iot.model.dto.SensorAlertDto;
 import com.greenhouse.greenhouse_iot.model.dto.UserDto;
 import com.greenhouse.greenhouse_iot.model.dto.auth.RegistrationRequest;
+import com.greenhouse.greenhouse_iot.model.entity.SensorAlert;
 import com.greenhouse.greenhouse_iot.model.entity.User;
 import com.greenhouse.greenhouse_iot.exception.ResourceNotFoundException;
 import com.greenhouse.greenhouse_iot.model.enums.Role;
+import com.greenhouse.greenhouse_iot.model.mapper.SensorAlertMapper;
 import com.greenhouse.greenhouse_iot.model.mapper.UserMapper;
+import com.greenhouse.greenhouse_iot.repository.SensorAlertRepository;
 import com.greenhouse.greenhouse_iot.repository.UserRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,14 +19,18 @@ import org.springframework.stereotype.Service;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
 public class UserServiceImpl implements UserService{
     private final UserRepository userRepository;
+    private final SensorAlertRepository sensorAlertRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final SecurityService securityService;
+    private final SensorAlertMapper sensorAlertMapper;
+
     @Override
     public List<UserDto> getUsers() {
         return userRepository.findAll().stream().map(userMapper::userToUserDto).toList();
@@ -86,5 +94,30 @@ public class UserServiceImpl implements UserService{
 
         userRepository.save(userToEdit);
         return  userMapper.userToUserDto(userToEdit);
+    }
+
+    @Override
+    public List<SensorAlertDto> getAlertsByUserId(Long userId, Boolean checked) {
+        User loggedInUser = securityService.getLoggedInUserOrThrow();
+
+        securityService.checkUserIdMatch(loggedInUser.getId(), userId);
+
+        List<SensorAlertDto> sensorAlertDtos = sensorAlertRepository.getAlertsForUser(userId, checked).stream()
+                .map(sensorAlertMapper::sensorReadingToSensorReadingDto).collect(Collectors.toList());
+
+        return sensorAlertDtos;
+    }
+
+    @Override
+    public void readAlertByUser(Long userId, Long alertId) {
+        User loggedInUser = securityService.getLoggedInUserOrThrow();
+
+        SensorAlert alert = sensorAlertRepository.findById(alertId).orElseThrow(() -> new ResourceNotFoundException("Alert not found"));
+
+        securityService.checkUserIdMatch(loggedInUser.getId(), alert.getUser().getId());
+
+        alert.setChecked(Boolean.TRUE);
+
+        sensorAlertRepository.save(alert);
     }
 }

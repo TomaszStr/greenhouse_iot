@@ -3,6 +3,7 @@ package com.greenhouse.greenhouse_iot.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.greenhouse.greenhouse_iot.model.dto.MqttCredentials;
+import com.greenhouse.greenhouse_iot.model.mqtt.alert.MqttSensorAlert;
 import com.greenhouse.greenhouse_iot.model.mqtt.sensor_command.MqttSensorCommandType;
 import com.greenhouse.greenhouse_iot.model.mqtt.dynamic_security.MqttCommand;
 import com.greenhouse.greenhouse_iot.model.mqtt.dynamic_security.CommandsWrapper;
@@ -34,7 +35,6 @@ public class MqttService {
     private final ObjectMapper objectMapper;
     private final SensorReadingService sensorReadingService;
     private final PasswordGenerator passwordGenerator;
-
     private final Set<String> subscribedTopics;
     private final String brokerUrl;
     private final String clientId;
@@ -94,22 +94,14 @@ public class MqttService {
             @Override
             public void messageArrived(String topic, MqttMessage message) {
                 log.info("Message received on topic {}: {}", topic, new String(message.getPayload()));
-                SensorReadingMqtt sensorReadingMqtt = null;
-                try {
-                    log.info("Map json to reading");
-                    sensorReadingMqtt = objectMapper.readValue(new String(message.getPayload()), SensorReadingMqtt.class);
-                    sensorReadingMqtt.setSensorMqttName(getSensorNameFromTopic(topic));
-
-                    log.info("Save reading to DB: {}", sensorReadingMqtt);
-                    if(sensorReadingService.addMqttReading(sensorReadingMqtt)) {
-                        log.info("Mqtt reading saved successfully to DB");
-                    }
-                    else {
-                        log.info("Mqtt reading saved unsuccessfully to DB");
-                    }
-                } catch (JsonProcessingException | RuntimeException e) {
-                    log.error("Exception while handling new message: {}",e.getMessage());
-                    throw new RuntimeException(e);
+                if (topic.matches("devices/[^/]+/data")) {
+                    log.info("Handling data topic for device.");
+                    handleSensorMqttReading(topic, message);
+                } else if (topic.matches("devices/[^/]+/alerts")) {
+                    log.info("Handling alerts topic for device.");
+                    handleSensorMqttAlert(topic, message);
+                } else {
+                    log.error("Unknown topic: {}", topic);
                 }
             }
 
@@ -127,7 +119,48 @@ public class MqttService {
     @PostConstruct
     public void initialize() throws MqttException {
         subscribeToTopic("devices/+/data", 0);
+        subscribeToTopic("devices/+/alerts", 0);
         subscribeToTopic(this.mqttDynamicSecurityTopic, 0);
+    }
+
+    private void handleSensorMqttReading(String topic, MqttMessage message) {
+        SensorReadingMqtt sensorReadingMqtt = null;
+        try {
+            log.info("Map json to reading");
+            sensorReadingMqtt = objectMapper.readValue(new String(message.getPayload()), SensorReadingMqtt.class);
+            sensorReadingMqtt.setSensorMqttName(getSensorNameFromTopic(topic));
+
+            log.info("Save reading to DB: {}", sensorReadingMqtt);
+            if(sensorReadingService.addMqttReading(sensorReadingMqtt)) {
+                log.info("Mqtt reading saved successfully to DB");
+            }
+            else {
+                log.info("Mqtt reading saved unsuccessfully to DB");
+            }
+        } catch (JsonProcessingException | RuntimeException e) {
+            log.error("Exception while handling new message: {}",e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void handleSensorMqttAlert(String topic, MqttMessage message) {
+        MqttSensorAlert mqttSensorAlert = null;
+        try {
+            log.info("Map json to alert");
+            mqttSensorAlert = objectMapper.readValue(new String(message.getPayload()), MqttSensorAlert.class);
+            mqttSensorAlert.setSensorMqttName(getSensorNameFromTopic(topic));
+
+            log.info("Save alert to DB: {}", mqttSensorAlert);
+            if(sensorReadingService.addMqttAlert(mqttSensorAlert)) {
+                log.info("Mqtt alert saved successfully to DB");
+            }
+            else {
+                log.info("Mqtt alert saved unsuccessfully to DB");
+            }
+        } catch (JsonProcessingException | RuntimeException e) {
+            log.error("Exception while handling new message: {}",e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 
     public void subscribeToTopic(String topic, Integer qos) throws MqttException {
@@ -156,9 +189,11 @@ public class MqttService {
         String baseSensorTopic = "devices/"+sensorMqttName;
         String dataTopic = baseSensorTopic + "/data";
         String commandsTopic = baseSensorTopic + "/commands";
+        String alertsTopic = baseSensorTopic + "/alerts";
         MqttAcl publishAcl = new MqttAcl("publishClientSend", dataTopic, Boolean.TRUE);
+        MqttAcl alertAcl = new MqttAcl("publishClientSend", alertsTopic, Boolean.TRUE);
         MqttAcl subscribeAcl = new MqttAcl("subscribeLiteral", commandsTopic, Boolean.TRUE);
-        List<MqttAcl> acls = List.of(new MqttAcl[]{publishAcl, subscribeAcl});
+        List<MqttAcl> acls = List.of(new MqttAcl[]{publishAcl, alertAcl, subscribeAcl});
         MqttRole mqttRole = new MqttRole(roleName);
 
         CreateRoleCommand createRoleCommand = new CreateRoleCommand(roleName, acls);
@@ -220,16 +255,6 @@ public class MqttService {
         return sendMqttSensorCommand(command, topic);
     }
 
-    private boolean sendMqttSensorCommand(MqttSensorCommand mqttSensorCommand, String topic) {
-        try {
-            String payload = objectMapper.writeValueAsString(mqttSensorCommand);
-            publishMessage(topic, payload, 0, true);
-            return true;
-        } catch (JsonProcessingException | MqttException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     public boolean setTemperatureAlertThreshold(String sensorMqttName, Integer threshold) {
         String topic = "devices/" + sensorMqttName + "/commands";
         MqttSensorCommand command = new MqttSensorCommand(MqttSensorCommandType.SET_TEMPERATURE_ALERT_THRESHOLD, threshold);
@@ -240,6 +265,17 @@ public class MqttService {
         String topic = "devices/" + sensorMqttName + "/commands";
         MqttSensorCommand command = new MqttSensorCommand(MqttSensorCommandType.SET_TEMPERATURE_ACTION_THRESHOLD, threshold);
         return sendMqttSensorCommand(command, topic);
+    }
+
+//    TODO CHANGE QOS TO 2 FOR COMMANDS - adjust dynamic-security ACL
+    private boolean sendMqttSensorCommand(MqttSensorCommand mqttSensorCommand, String topic) {
+        try {
+            String payload = objectMapper.writeValueAsString(mqttSensorCommand);
+            publishMessage(topic, payload, 0, true);
+            return true;
+        } catch (JsonProcessingException | MqttException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public String getMqttBrokerUrl(){
