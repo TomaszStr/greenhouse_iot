@@ -1,6 +1,6 @@
 package com.greenhouse.greenhouse_iot.service;
 
-import com.greenhouse.greenhouse_iot.exception.AccessDeniedException;
+import com.greenhouse.greenhouse_iot.exception.GreenhouseAccessDeniedException;
 import com.greenhouse.greenhouse_iot.exception.AuthenticationException;
 import com.greenhouse.greenhouse_iot.model.entity.Sensor;
 import com.greenhouse.greenhouse_iot.model.entity.User;
@@ -43,11 +43,11 @@ public class SecurityService {
      *
      * @param loggedInUser the logged-in user
      * @param sensor the sensor to check ownership for
-     * @throws AccessDeniedException if the user is not the owner
+     * @throws GreenhouseAccessDeniedException if the user is not the owner
      */
     public void checkSensorOwnership(User loggedInUser, Sensor sensor) {
         if (!isOwner(loggedInUser, sensor)) {
-            throw new AccessDeniedException("The logged-in user is not the owner of the sensor.");
+            throw new GreenhouseAccessDeniedException("The logged-in user is not the owner of the sensor.");
         }
     }
 
@@ -69,11 +69,11 @@ public class SecurityService {
      *
      * @param loggedInUserId the ID of the logged-in user
      * @param providedUserId the provided user ID to match
-     * @throws AccessDeniedException if the user IDs do not match
+     * @throws GreenhouseAccessDeniedException if the user IDs do not match
      */
     public void checkUserIdMatch(Long loggedInUserId, Long providedUserId) {
         if (!Objects.equals(loggedInUserId, providedUserId)) {
-            throw new AccessDeniedException("The logged-in user ID does not match the provided user ID.");
+            throw new GreenhouseAccessDeniedException("The logged-in user ID does not match the provided user ID.");
         }
     }
 

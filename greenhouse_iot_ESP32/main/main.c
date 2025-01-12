@@ -102,14 +102,136 @@ uint64_t get_timestamp(){
 #define MQTT_CMD_SET_SET_SENSOR_STATE           0
 #define MQTT_CMD_SET_SET_SENSOR_READING_PERIOD  1
 #define MQTT_CMD_SET_SENSOR_HEIGHT              2
-#define MQTT_CMD_SET_TEMP_ALERT_THRESHOLD       3
-#define MQTT_CMD_SET_SOIL_MOIST_ALERT_THRESHOLD 4
+#define MQTT_CMD_SET_SOIL_MOIST_ALERT_THRESHOLD 3
+#define MQTT_CMD_SET_TEMP_ALERT_THRESHOLD       4
+#define MQTT_CMD_SET_TEMP_ACTION_THRESHOLD      5
 
-static int current_working_state = SENSOR_STATE_NORMAL;
-static int height = 0;
-static int  measurement_period_ms = 20000;
-static int soil_moisture_alert_threshold = 10;
-static int temperature_alert_threshold = 3;
+// CONFIGURABLE DEVICE PARAMETERS
+
+int current_working_state = SENSOR_STATE_NORMAL;
+int height = 0;
+int  measurement_period_ms = 20000;
+int soil_moisture_alert_threshold = 10;
+int temperature_alert_threshold = 3;
+int temperature_action_threshold = 10;
+
+esp_err_t save_device_config_to_nvs() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("config", NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error opening NVS handle: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    nvs_set_i32(nvs_handle, "working_state", current_working_state);
+    nvs_set_i32(nvs_handle, "height", height);
+    nvs_set_i32(nvs_handle, "measurement_period", measurement_period_ms);
+    nvs_set_i32(nvs_handle, "moisture_threshold", soil_moisture_alert_threshold);
+    nvs_set_i32(nvs_handle, "temp_alert_thresh", temperature_alert_threshold);
+    nvs_set_i32(nvs_handle, "temp_action_thresh", temperature_action_threshold);
+
+    err = nvs_commit(nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error committing NVS handle: %s", esp_err_to_name(err));
+    }
+
+    nvs_close(nvs_handle);
+    return err;
+}
+
+esp_err_t save_device_config_to_nvs_from_command(int command_code, int value) {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("storage", NVS_READWRITE, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error opening NVS handle: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    switch (command_code) {
+        case MQTT_CMD_SET_SET_SENSOR_STATE:
+            current_working_state = value;
+            err = nvs_set_i32(nvs_handle, "working_state", value);
+            break;
+        case MQTT_CMD_SET_SET_SENSOR_READING_PERIOD:
+            measurement_period_ms = value;
+            err = nvs_set_i32(nvs_handle, "measurement_period", value);
+            break;
+        case MQTT_CMD_SET_SENSOR_HEIGHT:
+            height = value;
+            err = nvs_set_i32(nvs_handle, "height", value);
+            break;
+        case MQTT_CMD_SET_SOIL_MOIST_ALERT_THRESHOLD:
+            soil_moisture_alert_threshold = value;
+            err = nvs_set_i32(nvs_handle, "moisture_threshold", value);
+            break;
+        case MQTT_CMD_SET_TEMP_ALERT_THRESHOLD:
+            temperature_alert_threshold = value;
+            err = nvs_set_i32(nvs_handle, "temp_alert_thresh", value);
+            break;
+        case MQTT_CMD_SET_TEMP_ACTION_THRESHOLD:
+            temperature_action_threshold = value;
+            err = nvs_set_i32(nvs_handle, "temp_action_thresh", value);
+            break;
+        default:
+            ESP_LOGE(TAG, "Unknown command code: %d", command_code);
+            nvs_close(nvs_handle);
+            return ESP_ERR_INVALID_ARG;
+    }
+
+    if (err == ESP_OK) {
+        err = nvs_commit(nvs_handle);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Error committing NVS handle: %s", esp_err_to_name(err));
+        }
+    } else {
+        ESP_LOGE(TAG, "Error saving value to NVS: %s", esp_err_to_name(err));
+    }
+
+    nvs_close(nvs_handle);
+    return err;
+}
+
+esp_err_t read_device_config_from_nvs() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("config", NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error opening NVS handle: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    int tmp = 0;
+
+    if (nvs_get_i32(nvs_handle, "working_state", &tmp) == ESP_OK) {
+        current_working_state = tmp;
+    }
+    if (nvs_get_i32(nvs_handle, "height", &tmp) == ESP_OK) {
+        height = tmp;
+    }
+    if (nvs_get_i32(nvs_handle, "measurement_period", &tmp) == ESP_OK) {
+        measurement_period_ms = tmp;
+    }
+    if (nvs_get_i32(nvs_handle, "moisture_threshold", &tmp) == ESP_OK) {
+        soil_moisture_alert_threshold = tmp;
+    }
+    if (nvs_get_i32(nvs_handle, "temp_alert_thresh", &tmp) == ESP_OK) {
+        temperature_alert_threshold = tmp;
+    }
+    if (nvs_get_i32(nvs_handle, "temp_action_thresh", &tmp) == ESP_OK) {
+        temperature_action_threshold = tmp;
+    }
+
+    ESP_LOGI(TAG, "Config values after read from NVS:");
+    ESP_LOGI(TAG, "  working_state: %d", current_working_state);
+    ESP_LOGI(TAG, "  height: %d", height);
+    ESP_LOGI(TAG, "  measurement_period_ms: %d", measurement_period_ms);
+    ESP_LOGI(TAG, "  soil_moisture_alert_threshold: %d", soil_moisture_alert_threshold);
+    ESP_LOGI(TAG, "  temperature_alert_threshold: %d", temperature_alert_threshold);
+    ESP_LOGI(TAG, "  temperature_action_threshold: %d", temperature_action_threshold);
+
+    nvs_close(nvs_handle);
+    return ESP_OK;
+}
+
 
 #define SENSOR_SEMAPHORE_TIMEOUT_MS pdMS_TO_TICKS(1000)
 
@@ -657,6 +779,7 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         mqtt_connected = true;
+        mqtt_failure = false;
         mqtt_reconnect_count = 0;
         greenhouse_mqtt_client = client;
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
@@ -672,6 +795,9 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
             mqtt_failure = true;
             ESP_LOGI(TAG, "MQTT connection failed...");
         }
+        // else {
+        //     esp_mqtt_client_reconnect(greenhouse_mqtt_client)
+        // }
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED, retry count=%d",mqtt_reconnect_count);
         break;
 
@@ -733,6 +859,8 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
                     ESP_LOGI(TAG, "Unknown MQTT command id:%d", command_code_int);
                     break;
             }
+
+            save_device_config_to_nvs_from_command(command_code_int, value_int);
         }
 
         free(message);
@@ -770,6 +898,7 @@ void start_mqtt(){
                 .broker.address.uri = mqtt_url,
                 .credentials.username = mqtt_username,
                 .credentials.authentication.password = mqtt_password,
+                // .network.disable_auto_reconnect = true
             };
             ESP_LOGI(TAG, "MQTT initialize mqtt_client");
             greenhouse_mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
@@ -1149,23 +1278,28 @@ esp_err_t send_pairing_dto_to_server() {
 void monitor_config_process(){
     wifi_on=false;
     ble_on = true;
-    bool no_stop = true;
+    bool run_config_process = true;
     current_state = CONFIGURATION_INIT;
-    while(no_stop) {
+    while(run_config_process) {
         if(current_state == CONFIGURATION_INIT && check_ble_config_done()){
             ESP_LOGI(TAG, "After config confirmed - Enter configuration-confirmed state...");
             current_state = CONFIGURATION_CONFIRMED;
+            notify_ble_wifi_begin();
             start_wifi();    
         }
         else if(current_state == CONFIGURATION_CONFIRMED && wifi_check_failure()){
             ESP_LOGW(TAG, "After WiFi failure - Return to configuration-init state...");
             current_state = CONFIGURATION_INIT;
+
             notify_ble_config_failure();
             stop_wifi_connection();
         }
         else if(current_state == CONFIGURATION_CONFIRMED && wifi_check_connection()){
             ESP_LOGI(TAG, "After WiFi connection success - Enter configuration-wifi-connected state...");
             current_state = CONFIGURATION_WIFI_CONNECTED;
+
+            notify_ble_wifi_connected();
+
             if(send_pairing_dto_to_server() == SUCCESS) {
                 ESP_LOGI(TAG, "Successfully sent pairing DTO, start mqtt");
                 start_mqtt();
@@ -1177,16 +1311,21 @@ void monitor_config_process(){
         else if(current_state == CONFIGURATION_WIFI_CONNECTED && mqtt_check_failure()){
             ESP_LOGW(TAG, "After MQTT connection failure - Return to configuration-init state...");
             current_state = CONFIGURATION_INIT;
+
+            notify_ble_mqtt_failure();
+            vTaskDelay(pdMS_TO_TICKS(500));
             notify_ble_config_failure();
             stop_mqtt();
             stop_wifi_connection();
         }
         else if(current_state == CONFIGURATION_WIFI_CONNECTED && mqtt_check_connection()){
             ESP_LOGI(TAG, "After MQTT connection established - Enter configuration-mqtt-connecting state...");
+
+            notify_ble_mqtt_success();
+            vTaskDelay(pdMS_TO_TICKS(500));
             notify_ble_config_success();
-            // get_current_time();
             ble_server_stop();
-            no_stop = false;  
+            run_config_process = false;  
         }
 
         vTaskDelay(100/portTICK_PERIOD_MS);
@@ -1212,6 +1351,8 @@ void app_main() {
         ESP_LOGE(TAG, "Semaphore initialization failed, exiting app.");
         return;
     }
+
+    read_device_config_from_nvs();
 
     // xTaskCreate(&temperature_monitoring_task, "temperature_monitoring_task", 1024, NULL, 5, NULL);
     // xTaskCreate(&soil_moisture_monitoring_task, "soil_moisture_monitoring_task", 2048, NULL, 5, NULL);

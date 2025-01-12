@@ -1,5 +1,6 @@
 package com.greenhouse.greenhouse_iot.service;
 
+import com.greenhouse.greenhouse_iot.exception.GreenhouseAccessDeniedException;
 import com.greenhouse.greenhouse_iot.model.dto.MqttCredentials;
 import com.greenhouse.greenhouse_iot.model.dto.sensor.*;
 import com.greenhouse.greenhouse_iot.model.entity.Sensor;
@@ -116,7 +117,7 @@ public class SensorServiceImpl implements SensorService{
 
         if(!passwordEncoder.matches(assignSensorToUserDto.getSensorCode(), sensor.getSensorCode())) {
             log.error("Incorrect sensor code");
-            throw new RuntimeException("Incorrect sensor code");
+            throw new GreenhouseAccessDeniedException("Incorrect sensor code");
         }
 
         User owner = userRepository.findById(userId)

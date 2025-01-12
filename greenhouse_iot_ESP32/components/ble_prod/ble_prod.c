@@ -351,6 +351,20 @@ void save_config_to_nvs(){
 }
 
 void notify_ble_wifi_begin(){
+    uint8_t notify_data[2] = {0,0};
+    ESP_LOGI(TAG, "Sending notify data ble WiFi config begin: ");
+    esp_log_buffer_hex(TAG, notify_data, sizeof(notify_data));
+    esp_ble_gatts_send_indicate(
+        notify_gatts_if, 
+        notify_conn_id,
+        notify_handle, 
+        sizeof(notify_data), 
+        notify_data, 
+        true
+    );
+}
+
+void notify_ble_wifi_connected(){
     uint8_t notify_data[2] = {0,1};
     ESP_LOGI(TAG, "Sending notify data ble WiFi config begin: ");
     esp_log_buffer_hex(TAG, notify_data, sizeof(notify_data));
@@ -364,9 +378,37 @@ void notify_ble_wifi_begin(){
     );
 }
 
+void notify_ble_mqtt_failure(){
+    uint8_t notify_data[2] = {1,0};
+    ESP_LOGI(TAG, "Sending notify data ble - MQTT config failure: ");
+    esp_log_buffer_hex(TAG, notify_data, sizeof(notify_data));
+    esp_ble_gatts_send_indicate(
+        notify_gatts_if, 
+        notify_conn_id,
+        notify_handle, 
+        sizeof(notify_data), 
+        notify_data, 
+        true
+    );
+}
+
+void notify_ble_mqtt_success(){
+    uint8_t notify_data[2] = {1,1};
+    ESP_LOGI(TAG, "Sending notify data ble - MQTT config success: ");
+    esp_log_buffer_hex(TAG, notify_data, sizeof(notify_data));
+    esp_ble_gatts_send_indicate(
+        notify_gatts_if, 
+        notify_conn_id,
+        notify_handle, 
+        sizeof(notify_data), 
+        notify_data, 
+        true
+    );
+}
+
 void notify_ble_config_failure(){
     ble_configuration_done = false;
-    uint8_t notify_data[2] = {0,0};
+    uint8_t notify_data[2] = {2,0};
     ESP_LOGI(TAG, "Sending notify data ble - WiFi config failure: ");
     esp_log_buffer_hex(TAG, notify_data, sizeof(notify_data));
     esp_ble_gatts_send_indicate(
@@ -378,8 +420,9 @@ void notify_ble_config_failure(){
         true
     );
 }
+
 void notify_ble_config_success(){
-    uint8_t notify_data[2] = {1,1};
+    uint8_t notify_data[2] = {2,1};
     ESP_LOGI(TAG, "Sending notify data ble - WiFi config success: ");
     esp_log_buffer_hex(TAG, notify_data, sizeof(notify_data));
     esp_ble_gatts_send_indicate(
@@ -390,12 +433,6 @@ void notify_ble_config_success(){
         notify_data, 
         true
     );
-}
-void notify_ble_mqtt_failure(){
-    ESP_LOGI(TAG, "Sending notify data ble - MQTT config failure: ");
-}
-void notify_ble_mqtt_success(){
-    ESP_LOGI(TAG, "Sending notify data ble - MQTT config success: ");
 }
 
 
@@ -424,7 +461,7 @@ bool check_config_values(){
     //     return false;
     // }
     ESP_LOGI(TAG, "Configuration correct");
-    notify_ble_wifi_begin();
+    // notify_ble_wifi_begin();
     return true;
 }
 
