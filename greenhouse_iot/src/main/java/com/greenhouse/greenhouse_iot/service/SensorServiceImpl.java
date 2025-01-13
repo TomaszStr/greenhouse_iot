@@ -103,17 +103,9 @@ public class SensorServiceImpl implements SensorService{
 
     @Override
     public PairSensorDto assignSensorToUser(Long userId, AssignSensorToUserDto assignSensorToUserDto) {
-//        User loggedInUser = securityService.getLoggedInUserOrThrow();
-//
-//        securityService.checkUserIdMatch(loggedInUser.getId(), userId);
-
+        log.info("Pairing request from sensor with ID: {} to user with ID: {}", assignSensorToUserDto.getSensorId(), userId);
         Sensor sensor = sensorRepository.findById(assignSensorToUserDto.getSensorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Sensor not found"));
-
-//        if(sensor.getUser() != null){
-//            log.error("This sensor already has an owner");
-//            throw new RuntimeException("This sensor already has an owner");
-//        }
 
         if(!passwordEncoder.matches(assignSensorToUserDto.getSensorCode(), sensor.getSensorCode())) {
             log.error("Incorrect sensor code");

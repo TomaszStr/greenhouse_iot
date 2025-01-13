@@ -21,8 +21,7 @@ public class PublicEndpoints {
             "/v3/api-docs/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
-            "/users/*/sensors"
-
+            "pair/users/*/sensors"
     );
 
     public Set<String> getEndpoints() {

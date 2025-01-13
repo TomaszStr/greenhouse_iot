@@ -1245,11 +1245,36 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt) {
     return ESP_OK;
 }
 
+esp_err_t read_owner_id_from_nvs() {
+    nvs_handle_t nvs_handle;
+    esp_err_t err = nvs_open("config", NVS_READONLY, &nvs_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error opening NVS handle: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    int tmp = 0;
+
+    if (nvs_get_i32(nvs_handle, "user_id", &tmp) == ESP_OK) {
+        owner_id = (long long)tmp;
+    }
+
+    ESP_LOGI(TAG, "User ID read from nvs: %d", current_working_state);
+
+    nvs_close(nvs_handle);
+    return ESP_OK;
+}
+
 esp_err_t send_pairing_dto_to_server() {
     esp_err_t err = SUCCESS;
+    
+    err = read_owner_id_from_nvs();
+    if(err != ESP_OK) {
+        return ESP_FAIL;
+    } 
 
     char url[256];
-    snprintf(url, sizeof(url), "%s/api/users/%lld/sensors", server_url, owner_id);
+    snprintf(url, sizeof(url), "%s/api/pair/users/%lld/sensors", server_url, owner_id);
 
     char post_data[128];
     snprintf(post_data, sizeof(post_data), "{\"sensorId\":%lld,\"sensorCode\":\"%s\"}", SENSOR_ID, SENSOR_AUTH_CODE);
