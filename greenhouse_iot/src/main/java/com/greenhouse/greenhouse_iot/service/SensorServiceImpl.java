@@ -237,18 +237,36 @@ public class SensorServiceImpl implements SensorService{
     }
 
     @Override
-    public Boolean changeSoilMoistureAlertThreshold(Long sensorId, ChangeSoilMoistureAlertThresholdDto changeSoilMoistureAlertThresholdDto) {
+    public Boolean changeSoilMoistureAlertThreshold(Long sensorId, ChangeSoilMoistureThresholdDto changeSoilMoistureThresholdDto) {
         User loggedInUser = securityService.getLoggedInUserOrThrow();
 
         Sensor sensor = sensorRepository.findById(sensorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Sensor not found"));
 
         securityService.checkSensorOwnership(loggedInUser, sensor);
-        log.info("Change soil moisture alert threshold for sensor: {}, value: {}", sensorId, changeSoilMoistureAlertThresholdDto.getThreshold());
-        if(mqttService.setSoilMoistureAlertThreshold(sensor.getSensorMqttName(), changeSoilMoistureAlertThresholdDto.getThreshold())) {
-            sensor.setSoilMoistureAlertThreshold(changeSoilMoistureAlertThresholdDto.getThreshold());
+        log.info("Change soil moisture alert threshold for sensor: {}, value: {}", sensorId, changeSoilMoistureThresholdDto.getThreshold());
+        if(mqttService.setSoilMoistureAlertThreshold(sensor.getSensorMqttName(), changeSoilMoistureThresholdDto.getThreshold())) {
+            sensor.setSoilMoistureAlertThreshold(changeSoilMoistureThresholdDto.getThreshold());
             sensor = sensorRepository.save(sensor);
-            return Objects.equals(sensor.getSoilMoistureAlertThreshold(), changeSoilMoistureAlertThresholdDto.getThreshold());
+            return Objects.equals(sensor.getSoilMoistureAlertThreshold(), changeSoilMoistureThresholdDto.getThreshold());
+        }
+
+        return false;
+    }
+
+    @Override
+    public Boolean changeSoilMoistureActionThreshold(Long sensorId, ChangeSoilMoistureThresholdDto changeSoilMoistureThresholdDto) {
+        User loggedInUser = securityService.getLoggedInUserOrThrow();
+
+        Sensor sensor = sensorRepository.findById(sensorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Sensor not found"));
+
+        securityService.checkSensorOwnership(loggedInUser, sensor);
+        log.info("Change soil moisture action threshold for sensor: {}, value: {}", sensorId, changeSoilMoistureThresholdDto.getThreshold());
+        if(mqttService.setSoilMoistureActionThreshold(sensor.getSensorMqttName(), changeSoilMoistureThresholdDto.getThreshold())) {
+            sensor.setSoilMoistureActionThreshold(changeSoilMoistureThresholdDto.getThreshold());
+            sensor = sensorRepository.save(sensor);
+            return Objects.equals(sensor.getSoilMoistureActionThreshold(), changeSoilMoistureThresholdDto.getThreshold());
         }
 
         return false;
@@ -282,9 +300,9 @@ public class SensorServiceImpl implements SensorService{
         securityService.checkSensorOwnership(loggedInUser, sensor);
 
         if(mqttService.setTemperatureActionThreshold(sensor.getSensorMqttName(), changeTemperatureThresholdDto.getThreshold())) {
-            sensor.setTemperatureAlertThreshold(changeTemperatureThresholdDto.getThreshold());
+            sensor.setTemperatureActionThreshold(changeTemperatureThresholdDto.getThreshold());
             sensor = sensorRepository.save(sensor);
-            return Objects.equals(sensor.getTemperatureAlertThreshold(), changeTemperatureThresholdDto.getThreshold());
+            return Objects.equals(sensor.getTemperatureActionThreshold(), changeTemperatureThresholdDto.getThreshold());
         }
 
         return false;

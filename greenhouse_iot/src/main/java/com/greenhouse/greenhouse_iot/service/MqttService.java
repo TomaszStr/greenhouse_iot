@@ -255,6 +255,12 @@ public class MqttService {
         return sendMqttSensorCommand(command, topic);
     }
 
+    public boolean setSoilMoistureActionThreshold(String sensorMqttName, Integer threshold) {
+        String topic = "devices/" + sensorMqttName + "/commands";
+        MqttSensorCommand command = new MqttSensorCommand(MqttSensorCommandType.SET_SOIL_MOISTURE_ACTION_THRESHOLD, threshold);
+        return sendMqttSensorCommand(command, topic);
+    }
+
     public boolean setTemperatureAlertThreshold(String sensorMqttName, Integer threshold) {
         String topic = "devices/" + sensorMqttName + "/commands";
         MqttSensorCommand command = new MqttSensorCommand(MqttSensorCommandType.SET_TEMPERATURE_ALERT_THRESHOLD, threshold);

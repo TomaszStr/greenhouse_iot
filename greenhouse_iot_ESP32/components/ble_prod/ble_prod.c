@@ -6,11 +6,10 @@
 #include "esp_bt_main.h"
 
 #include "nvs_flash.h"
-// #include "nvs.h"
 
 static const char *TAG = "BLE";
 
-// Application Profile - A config
+// Application Profile - config
 #define GATTS_SERVICE_UUID  0x00FF
 #define GATTS_CHAR_UUID_SSID 0xFF01
 #define GATTS_CHAR_UUID_PASSWORD 0xFF02
@@ -31,10 +30,7 @@ static const char *TAG = "BLE";
 
 #define GATTS_NUM_HANDLE     40
 
-// Rozmiar danych dla charakterystyk
 #define CHAR_VALUE_MAX_LEN 128
-// #define CHAR_MQTT_MAX_LEN 128
-
 
 #define TEST_DEVICE_NAME            "ESP_GATTS_greenhouse"
 #define TEST_MANUFACTURER_DATA_LEN  17
@@ -314,32 +310,20 @@ void save_config_to_nvs(){
     }
 
     if (user_id_value.length > 0) {
-        err = nvs_set_str(nvs_handle, "user_id", (const char *)user_id_value.value);
-        if (err != ESP_OK) {
-            ESP_LOGE("NVS", "Failed to save User: %s", esp_err_to_name(err));
+        char *endptr;
+        int64_t user_id = strtoll((const char *)user_id_value.value, &endptr, 10);
+
+        if (*endptr != '\0') {
+            ESP_LOGE("NVS", "Invalid User ID: %s", (const char *)user_id_value.value);
+        } else {
+            err = nvs_set_i64(nvs_handle, "user_id", user_id);
+            if (err != ESP_OK) {
+                ESP_LOGE("NVS", "Failed to save User ID: %s", esp_err_to_name(err));
+            } else {
+                ESP_LOGI("NVS", "User ID saved successfully");
+            }
         }
     }
-
-    // if (mqtt_username_value.length > 0) {
-    //     err = nvs_set_str(nvs_handle, "mqtt_username", (const char *)mqtt_username_value.value);
-    //     if (err != ESP_OK) {
-    //         ESP_LOGE("NVS", "Failed to save MQTT username: %s", esp_err_to_name(err));
-    //     }
-    // }
-
-    // if (mqtt_password_value.length > 0) {
-    //     err = nvs_set_str(nvs_handle, "mqtt_password", (const char *)mqtt_password_value.value);
-    //     if (err != ESP_OK) {
-    //         ESP_LOGE("NVS", "Failed to save MQTT password: %s", esp_err_to_name(err));
-    //     }
-    // }
-
-    // if (mqtt_url_value.length > 0) {
-    //     err = nvs_set_str(nvs_handle, "mqtt_url", (const char *)mqtt_url_value.value);
-    //     if (err != ESP_OK) {
-    //         ESP_LOGE("NVS", "Failed to save MQTT URL: %s", esp_err_to_name(err));
-    //     }
-    // }
 
     err = nvs_commit(nvs_handle);
     if (err != ESP_OK) {

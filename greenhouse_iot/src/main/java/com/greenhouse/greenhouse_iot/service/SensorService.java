@@ -15,7 +15,8 @@ public interface SensorService {
     Boolean changeReadingPeriod(Long sensorId, ChangeReadingPeriodDto changeReadingPeriodDto);
     Boolean changeSensorState(Long sensorId, ChangeSensorStateDto changeSensorStateDto);
     Boolean changeSensorHeight(Long sensorId, ChangeSensorHeightDto changeSensorHeightDto);
-    Boolean changeSoilMoistureAlertThreshold(Long sensorId, ChangeSoilMoistureAlertThresholdDto changeSoilMoistureAlertThresholdDto);
+    Boolean changeSoilMoistureAlertThreshold(Long sensorId, ChangeSoilMoistureThresholdDto changeSoilMoistureThresholdDto);
+    Boolean changeSoilMoistureActionThreshold(Long sensorId, ChangeSoilMoistureThresholdDto changeSoilMoistureThresholdDto);
     Boolean changeTemperatureAlertThreshold(Long sensorId, ChangeTemperatureThresholdDto changeTemperatureThresholdDto);
     Boolean changeTemperatureActionThreshold(Long sensorId, ChangeTemperatureThresholdDto changeTemperatureThresholdDto);
     List<SensorDto> getSensorsByUserId(Long userId);

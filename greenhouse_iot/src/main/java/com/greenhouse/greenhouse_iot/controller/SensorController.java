@@ -60,8 +60,14 @@ public class SensorController {
 
     @PutMapping("/{sensorId}/soil_moisture_alert_threshold")
     public ResponseEntity<Boolean> changeSoilMoistureAlertThreshold(@PathVariable Long sensorId,
-                                                    @RequestBody ChangeSoilMoistureAlertThresholdDto changeSoilMoistureAlertThresholdDto) {
-        return ResponseEntity.ok(sensorService.changeSoilMoistureAlertThreshold(sensorId, changeSoilMoistureAlertThresholdDto));
+                                                    @RequestBody ChangeSoilMoistureThresholdDto changeSoilMoistureThresholdDto) {
+        return ResponseEntity.ok(sensorService.changeSoilMoistureAlertThreshold(sensorId, changeSoilMoistureThresholdDto));
+    }
+
+    @PutMapping("/{sensorId}/soil_moisture_action_threshold")
+    public ResponseEntity<Boolean> changeSoilMoistureActionThreshold(@PathVariable Long sensorId,
+                                                                    @RequestBody ChangeSoilMoistureThresholdDto changeSoilMoistureThresholdDto) {
+        return ResponseEntity.ok(sensorService.changeSoilMoistureActionThreshold(sensorId, changeSoilMoistureThresholdDto));
     }
 
     @PutMapping("/{sensorId}/temperature_alert_threshold")

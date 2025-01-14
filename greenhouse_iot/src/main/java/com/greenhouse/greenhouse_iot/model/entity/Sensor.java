@@ -38,8 +38,14 @@ public class Sensor {
     @Column(name = "soil_moisture_alert_threshold")
     Integer soilMoistureAlertThreshold;
 
+    @Column(name = "soil_moisture_action_threshold")
+    Integer soilMoistureActionThreshold;
+
     @Column(name = "temperature_alert_threshold")
     Integer temperatureAlertThreshold;
+
+    @Column(name = "temperature_action_threshold")
+    Integer temperatureActionThreshold;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "current_state", nullable = false)

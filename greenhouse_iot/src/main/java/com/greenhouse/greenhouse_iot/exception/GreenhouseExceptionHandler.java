@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -36,6 +37,13 @@ public class GreenhouseExceptionHandler {
 
     @ExceptionHandler(GreenhouseAccessDeniedException.class)
     public ResponseEntity<GreenhouseErrorResponse> handleAuthenticationException(GreenhouseAccessDeniedException ex) {
+        log.error("Authentication error: {}", ex.getMessage());
+        GreenhouseErrorResponse errorResponse = new GreenhouseErrorResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<GreenhouseErrorResponse> handleBadCredentialsException(GreenhouseAccessDeniedException ex) {
         log.error("Authentication error: {}", ex.getMessage());
         GreenhouseErrorResponse errorResponse = new GreenhouseErrorResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);

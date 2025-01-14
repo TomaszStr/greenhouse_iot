@@ -52,6 +52,7 @@ static greenhouse_iot_state_t current_state = RUNNING;
 */
 
 #define TEMPERATURE_ALERT_INTERVAL_S 60
+#define SOIL_MOISTURE_ALERT_INTERVAL_S 60
 
 static int got_current_time = false;
 
@@ -101,12 +102,13 @@ uint64_t get_timestamp(){
 #define SENSOR_STATE_FORCED     1
 #define SENSOR_STATE_SLEEP      2
 
-#define MQTT_CMD_SET_SET_SENSOR_STATE           0
-#define MQTT_CMD_SET_SET_SENSOR_READING_PERIOD  1
-#define MQTT_CMD_SET_SENSOR_HEIGHT              2
-#define MQTT_CMD_SET_SOIL_MOIST_ALERT_THRESHOLD 3
-#define MQTT_CMD_SET_TEMP_ALERT_THRESHOLD       4
-#define MQTT_CMD_SET_TEMP_ACTION_THRESHOLD      5
+#define MQTT_CMD_SET_SET_SENSOR_STATE               0
+#define MQTT_CMD_SET_SET_SENSOR_READING_PERIOD      1
+#define MQTT_CMD_SET_SENSOR_HEIGHT                  2
+#define MQTT_CMD_SET_SOIL_MOIST_ALERT_THRESHOLD     3
+#define MQTT_CMD_SET_SOIL_MOIST_ACTION_THRESHOLD    4
+#define MQTT_CMD_SET_TEMP_ALERT_THRESHOLD           5
+#define MQTT_CMD_SET_TEMP_ACTION_THRESHOLD          6
 
 // CONFIGURABLE DEVICE PARAMETERS
 
@@ -114,6 +116,7 @@ int current_working_state = SENSOR_STATE_NORMAL;
 int height = 0;
 int  measurement_period_ms = 20000;
 int soil_moisture_alert_threshold = 10;
+int soil_moisture_action_threshold = 20;
 int temperature_alert_threshold = 3;
 int temperature_action_threshold = 10;
 
@@ -128,7 +131,8 @@ esp_err_t save_device_config_to_nvs() {
     nvs_set_i32(nvs_handle, "work_state", current_working_state);
     nvs_set_i32(nvs_handle, "height", height);
     nvs_set_i32(nvs_handle, "meas_period", measurement_period_ms);
-    nvs_set_i32(nvs_handle, "moist_threshold", soil_moisture_alert_threshold);
+    nvs_set_i32(nvs_handle, "moist_alrt_thr", soil_moisture_alert_threshold);
+    nvs_set_i32(nvs_handle, "moist_act_thr", soil_moisture_action_threshold);
     nvs_set_i32(nvs_handle, "temp_alert_thr", temperature_alert_threshold);
     nvs_set_i32(nvs_handle, "temp_act_thr", temperature_action_threshold);
 
@@ -164,7 +168,11 @@ esp_err_t save_device_config_to_nvs_from_command(int command_code, int value) {
             break;
         case MQTT_CMD_SET_SOIL_MOIST_ALERT_THRESHOLD:
             soil_moisture_alert_threshold = value;
-            err = nvs_set_i32(nvs_handle, "moist_thr", value);
+            err = nvs_set_i32(nvs_handle, "moist_alrt_thr", value);
+            break;
+        case MQTT_CMD_SET_SOIL_MOIST_ACTION_THRESHOLD:
+            soil_moisture_alert_threshold = value;
+            err = nvs_set_i32(nvs_handle, "moist_act_thr", value);
             break;
         case MQTT_CMD_SET_TEMP_ALERT_THRESHOLD:
             temperature_alert_threshold = value;
@@ -212,8 +220,11 @@ esp_err_t read_device_config_from_nvs() {
     if (nvs_get_i32(nvs_handle, "meas_period", &tmp) == ESP_OK) {
         measurement_period_ms = tmp;
     }
-    if (nvs_get_i32(nvs_handle, "moist_thr", &tmp) == ESP_OK) {
+    if (nvs_get_i32(nvs_handle, "moist_alrt_thr", &tmp) == ESP_OK) {
         soil_moisture_alert_threshold = tmp;
+    }
+    if (nvs_get_i32(nvs_handle, "moist_act_thr", &tmp) == ESP_OK) {
+        soil_moisture_action_threshold = tmp;
     }
     if (nvs_get_i32(nvs_handle, "temp_alert_thr", &tmp) == ESP_OK) {
         temperature_alert_threshold = tmp;
@@ -473,6 +484,8 @@ void stop_mqtt();
 void enter_config_mode() {
     ESP_LOGI(TAG, "Entering configuration mode...");
     configuration_mode = true;
+    turn_off_diode(&soil_moist_alert_diode);
+    turn_off_diode(&temp_alert_diode);
     ble_server_init();
     xTaskCreate(&monitor_config_process, "monitor_config_process", 16384, NULL, 5, &config_monitor_task_handle);
 }
@@ -1027,12 +1040,38 @@ void reading_task(){
 */
 
 time_t last_temp_alert_time = 0;
+time_t last_soil_moist_alert_time = 0;
+
+void send_soil_moisture_alert_to_mqtt(int soil_moisture) {
+    time_t now = get_timestamp();
+
+    int length = snprintf(mqtt_json_data, sizeof(mqtt_json_data),
+        "{\"timestamp\": %lld, \"alertType\": \"SOIL_MOISTURE\", \"value\": %d}",
+        (uint64_t)now, soil_moisture);
+
+    if (length < 0 || length >= sizeof(mqtt_json_data)) {
+        ESP_LOGE(TAG, "Failed to create JSON string or buffer overflow");
+    }
+    else {
+        ESP_LOGI(TAG, "Writing data to MQTT broker, topic:%s ,data: %s", mqtt_alerts_topic, mqtt_json_data);
+        esp_mqtt_client_publish(greenhouse_mqtt_client, mqtt_alerts_topic, mqtt_json_data, 0, 0, 0);
+    }
+}
 
 void soil_moisture_monitoring_task(){
     while(1){
         if(current_state == RUNNING && xSemaphoreTake(capacitive_soil_moisture_sensor_mutex, pdMS_TO_TICKS(SENSOR_SEMAPHORE_TIMEOUT_MS)) == pdTRUE) {
+            // Check if taken correctly
+            if (xSemaphoreTake(capacitive_soil_moisture_sensor_mutex, 0) == pdTRUE) {
+                ESP_LOGW(TAG,"BME280 semaphore wasn't taken");
+                xSemaphoreGive(capacitive_soil_moisture_sensor_mutex);
+                vTaskDelay(soil_moist_alert_diode.check_period / portTICK_PERIOD_MS);
+                continue;
+            }
+
             soil_moisture_value = capacitive_soil_moisture_sensor_read_compensated(&capacitive_soil_moisture_sensor);
             ESP_LOGI(TAG, "Soil moisture monitoring, value: %d%%", soil_moisture_value);
+
             if(soil_moisture_value < soil_moisture_alert_threshold) {
                 ESP_LOGI(TAG, "Soil moisture critically low: %d%%", soil_moisture_value);
                 turn_on_diode(&soil_moist_alert_diode);
@@ -1040,6 +1079,24 @@ void soil_moisture_monitoring_task(){
             else {
                 turn_off_diode(&soil_moist_alert_diode);
             }
+
+            time_t current_time = time(NULL);
+
+            if(soil_moisture_value < soil_moisture_alert_threshold){
+                ESP_LOGI(TAG, "Soil moisture critically low: %d%%, below alert threshold", soil_moisture_value);
+                if(wifi_check_connection() && mqtt_check_connection()) {
+                    if(difftime(current_time, last_temp_alert_time) >= TEMPERATURE_ALERT_INTERVAL_S){
+                        last_soil_moist_alert_time = current_time;
+                        ESP_LOGI(TAG, "Send alert to mqtt broker");
+                        send_soil_moisture_alert_to_mqtt(temp);
+                    }
+                }
+                else {
+                    ESP_LOGW(TAG, "Unable to send alert - no connection");
+                }
+            }
+
+
             xSemaphoreGive(capacitive_soil_moisture_sensor_mutex);
         }
 
@@ -1135,8 +1192,6 @@ void temperature_monitoring_task() {
                     ESP_LOGW(TAG, "Unable to send alert - no connection");
                 }
             }
-
-            
 
             xSemaphoreGive(bme280_mutex);
         }
@@ -1253,13 +1308,13 @@ esp_err_t read_owner_id_from_nvs() {
         return err;
     }
 
-    int tmp = 0;
-
-    if (nvs_get_i32(nvs_handle, "user_id", &tmp) == ESP_OK) {
-        owner_id = (long long)tmp;
+    err = nvs_get_i64(nvs_handle, "user_id", &owner_id);
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG, "Failed to read owner id");
+        return err;
     }
 
-    ESP_LOGI(TAG, "User ID read from nvs: %d", current_working_state);
+    ESP_LOGI(TAG, "User ID read from nvs: %lld", owner_id);
 
     nvs_close(nvs_handle);
     return ESP_OK;
@@ -1299,6 +1354,7 @@ esp_err_t send_pairing_dto_to_server() {
 
     response_ready = false;
 
+    ESP_LOGI(TAG, "Send pairing dto to endpoint: %s", url);
     err += esp_http_client_perform(client);
 
     if (err == ESP_OK) {
@@ -1417,10 +1473,13 @@ void app_main() {
         return;
     }
 
-    read_device_config_from_nvs();
+    if(read_device_config_from_nvs() != ESP_OK) {
+        ESP_LOGE(TAG, "Error reading device configuration");
+        return;
+    }
 
     xTaskCreate(&temperature_monitoring_task, "temperature_monitoring_task", 2048, NULL, 5, NULL);
-    // xTaskCreate(&soil_moisture_monitoring_task, "soil_moisture_monitoring_task", 2048, NULL, 5, NULL);
+    xTaskCreate(&soil_moisture_monitoring_task, "soil_moisture_monitoring_task", 2048, NULL, 5, NULL);
 
     init_sntp();
 
