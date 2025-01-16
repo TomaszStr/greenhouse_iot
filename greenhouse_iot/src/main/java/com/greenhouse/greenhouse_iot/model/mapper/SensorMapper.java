@@ -1,6 +1,7 @@
 package com.greenhouse.greenhouse_iot.model.mapper;
 
 import com.greenhouse.greenhouse_iot.model.dto.sensor.AddSensorDto;
+import com.greenhouse.greenhouse_iot.model.dto.sensor.SensorDetailDto;
 import com.greenhouse.greenhouse_iot.model.dto.sensor.SensorDto;
 
 import com.greenhouse.greenhouse_iot.model.entity.Sensor;
@@ -16,7 +17,7 @@ public interface SensorMapper {
     })
     SensorDto sensorToSensorDto(Sensor sensor);
 
-//    Sensor sensorDtoToSensor(SensorDto sensorDto);
+    SensorDetailDto sensorToSensorDetailDto(Sensor sensor);
 
     @Mappings({
             @Mapping(target = "id", ignore = true),
@@ -25,7 +26,9 @@ public interface SensorMapper {
             @Mapping(target = "sensorName", ignore = true),
             @Mapping(target = "height", ignore = true),
             @Mapping(target = "soilMoistureAlertThreshold", ignore = true),
+            @Mapping(target = "soilMoistureActionThreshold", ignore = true),
             @Mapping(target = "temperatureAlertThreshold", ignore = true),
+            @Mapping(target = "temperatureActionThreshold", ignore = true),
             @Mapping(target = "currentState", source = "currentState")
     })
     Sensor addSensorDtoToSensor(AddSensorDto addSensorDto);

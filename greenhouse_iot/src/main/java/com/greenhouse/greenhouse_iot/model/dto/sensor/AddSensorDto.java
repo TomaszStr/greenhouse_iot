@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class AddSensorDto {
     @NotBlank(message = "MAC address cannot be blank")
-    @Pattern(regexp = "^([0-9A-Fa-f]{2}[.:-]){5}([0-9A-Fa-f]{2})$")
+    @Pattern(regexp = "^([0-9A-Fa-f]{2}[-]){5}([0-9A-Fa-f]{2})$")
     private String macAddress;
 
     @NotBlank(message = "Sensor code cannot be blank")
@@ -18,7 +18,4 @@ public class AddSensorDto {
 //    @Size(min = 3, max = 20, message = "Current state must be between 3 and 20 characters")
     private SensorState currentState;
 
-    @NotNull(message = "Reading period cannot be null")
-    @Min(value = 30, message = "Reading period must be at least 30 seconds")
-    private Long readingPeriod;
 }

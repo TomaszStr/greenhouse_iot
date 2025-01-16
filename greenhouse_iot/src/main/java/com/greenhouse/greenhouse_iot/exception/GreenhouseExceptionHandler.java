@@ -5,6 +5,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -51,6 +52,13 @@ public class GreenhouseExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<GreenhouseErrorResponse> handleAuthenticationException(AuthenticationException ex) {
+        log.error("Authentication error: {}", ex.getMessage());
+        GreenhouseErrorResponse errorResponse = new GreenhouseErrorResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<GreenhouseErrorResponse> handleAuthenticationException(AuthorizationDeniedException ex) {
         log.error("Authentication error: {}", ex.getMessage());
         GreenhouseErrorResponse errorResponse = new GreenhouseErrorResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);

@@ -1,4 +1,4 @@
-package com.greenhouse.greenhouse_iot.model.dto.sensor;
+package com.greenhouse.greenhouse_iot.model.dto.sensor.commands;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

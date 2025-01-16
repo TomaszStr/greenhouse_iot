@@ -51,36 +51,45 @@ static greenhouse_iot_state_t current_state = RUNNING;
 ===================================================================================
 */
 
-#define TEMPERATURE_ALERT_INTERVAL_S 60
-#define SOIL_MOISTURE_ALERT_INTERVAL_S 60
+#define TEMPERATURE_ALERT_INTERVAL_S 900
+#define SOIL_MOISTURE_ALERT_INTERVAL_S 900
 
 static int got_current_time = false;
 
 void init_sntp() {
     esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
-    esp_netif_sntp_init(&config);
+    esp_err_t err = esp_netif_sntp_init(&config);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to initialize SNTP: %s (%d)", esp_err_to_name(err), err);
+    }
 }
 
 void deinit_sntp() {
     esp_netif_sntp_deinit();
 }
 
-void get_current_time(){
-    ESP_LOGI(TAG,"Try to get current time");
+int get_current_time() {
+    ESP_LOGI(TAG, "Trying to get current time");
     time_t now = 0;
     struct tm timeinfo = { 0 };
-    if (esp_netif_sntp_sync_wait(pdMS_TO_TICKS(10000)) != ESP_OK) {
-        ESP_LOGI(TAG,"Failed to update system time within 10s timeout");
-        return;
-    }
-    else {
-        time(&now);
-        localtime_r(&now, &timeinfo);
-        ESP_LOGI(TAG, "Updated system time: time:%llu, year:%d, month:%d, day:%d", (uint64_t)now, timeinfo.tm_year, timeinfo.tm_mon, timeinfo.tm_mday);
-        got_current_time = true;
 
-        // deinit_sntp();
+    if (!wifi_check_connection()) {
+        ESP_LOGE(TAG, "Wi-Fi not connected. Cannot sync time.");
+        return ESP_FAIL;
     }
+
+    esp_err_t err = esp_netif_sntp_sync_wait(pdMS_TO_TICKS(20000));
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to update system time within timeout. Error: %s (%d)", esp_err_to_name(err), err);
+        return err;
+    }
+    got_current_time = true;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    ESP_LOGI(TAG, "Updated system time: time:%llu, year:%d, month:%d, day:%d",
+             (uint64_t)now, timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday);
+
+    return ESP_OK;
 }
 
 uint64_t get_timestamp(){
@@ -487,7 +496,7 @@ void enter_config_mode() {
     turn_off_diode(&soil_moist_alert_diode);
     turn_off_diode(&temp_alert_diode);
     ble_server_init();
-    xTaskCreate(&monitor_config_process, "monitor_config_process", 16384, NULL, 5, &config_monitor_task_handle);
+    xTaskCreate(&monitor_config_process, "monitor_config_process", 32768, NULL, 5, &config_monitor_task_handle);
 }
 
 void exit_config_mode(){
@@ -601,6 +610,7 @@ static void button_long_press_callback(TimerHandle_t xTimer) {
         // if(bme280_mutex) {xSemaphoreGive(bme280_mutex);}
         // if(capacitive_soil_moisture_sensor_mutex) {xSemaphoreGive(capacitive_soil_moisture_sensor_mutex);}
         stop_wifi_connection();
+        stop_mqtt();
         enter_config_mode();
     }
     else {
@@ -832,7 +842,10 @@ void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event
                     ESP_LOGI(TAG, "Setting soil moisture alert threshold to %d.", value_int);
                     soil_moisture_alert_threshold = value_int;
                     break;
-
+                case(MQTT_CMD_SET_SOIL_MOIST_ACTION_THRESHOLD):
+                    ESP_LOGI(TAG, "Setting soil moisture action threshold to %d.", value_int);
+                    soil_moisture_alert_threshold = value_int;
+                    break;
                 case(MQTT_CMD_SET_TEMP_ALERT_THRESHOLD):
                     ESP_LOGI(TAG, "Setting temperature alert threshold to %d°C.", value_int);
                     temperature_alert_threshold = value_int;
@@ -885,7 +898,8 @@ void start_mqtt(){
                 .broker.address.uri = mqtt_url,
                 .credentials.username = mqtt_username,
                 .credentials.authentication.password = mqtt_password,
-                // .network.disable_auto_reconnect = true
+                // .network.disable_auto_reconnect = true,
+                // .network.reconnect_timeout_ms = 5000,
             };
             ESP_LOGI(TAG, "MQTT initialize mqtt_client");
             greenhouse_mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
@@ -972,53 +986,53 @@ void reading_task(){
     esp_err_t ret = 0;
     while(1){
         if(current_state == RUNNING && wifi_check_connection() && mqtt_check_connection()){
+            if(!got_current_time) {
+                ret = get_current_time();
+            }
+            else
             if(xSemaphoreTake(bme280_mutex, pdMS_TO_TICKS(SENSOR_SEMAPHORE_TIMEOUT_MS) == pdTRUE) &&
-                xSemaphoreTake(capacitive_soil_moisture_sensor_mutex, pdMS_TO_TICKS(SENSOR_SEMAPHORE_TIMEOUT_MS) == pdTRUE)) {
-                if(!got_current_time) {
-                    get_current_time();
+                    xSemaphoreTake(capacitive_soil_moisture_sensor_mutex, pdMS_TO_TICKS(SENSOR_SEMAPHORE_TIMEOUT_MS) == pdTRUE)) {
+
+                light_intensity_value = temt6000_read_compensated(&temt6000);
+        
+                soil_moisture_value = capacitive_soil_moisture_sensor_read_compensated(&capacitive_soil_moisture_sensor);
+                
+                ret = bme280_read_uncomp_pressure_temperature_humidity(&bme280, &v_pressure_uncomp_u32, &v_temperature_uncomp_s32, &v_humidity_uncomp_u32);
+                if (ret != ESP_OK) {
+                    ESP_LOGE(TAG, "Error reading temperature: %s", esp_err_to_name(ret));
+                    xSemaphoreGive(bme280_mutex);
+                    xSemaphoreGive(capacitive_soil_moisture_sensor_mutex);
+                    vTaskDelay(measurement_period_ms/portTICK_PERIOD_MS);
+                    continue;
+                }
+
+                temp = bme280_compensate_temperature_double(&bme280, v_temperature_uncomp_s32);
+                sprintf(temperature, "%.2f", temp);
+                
+                press = bme280_compensate_pressure_double(&bme280, v_pressure_uncomp_u32) / 100; // Pa -> hPa
+                sprintf(pressure, "%.2f", press);
+
+                hum = bme280_compensate_humidity_double(&bme280, v_humidity_uncomp_u32);
+                sprintf(humidity, "%.2f", hum);
+
+                time_t now = get_timestamp();
+                struct tm timeinfo = {0};
+                localtime_r(&now, &timeinfo);
+                char timestamp[32];
+                strftime(timestamp, 32, "%Y-%m-%dT%H:%M:%SZ", &timeinfo);
+
+                ESP_LOGI(TAG, "Timestamp: %s, Light intensity: %d%%, Soil moisture: %d%%, Pressure: %shPa, Temperature: %sC, Humidity: %s%%rH", timestamp, light_intensity_value, soil_moisture_value, pressure, temperature, humidity);
+
+                int length = snprintf(mqtt_json_data, sizeof(mqtt_json_data),
+                    "{\"timestamp\": %lld, \"light_intensity\": %d, \"soil_moisture\": %d, \"pressure\": %s, \"temperature\": %s, \"humidity\": %s}",
+                    (uint64_t)now, light_intensity_value, soil_moisture_value, pressure, temperature, humidity);
+
+                if (length < 0 || length >= sizeof(mqtt_json_data)) {
+                    ESP_LOGE(TAG, "Failed to create JSON string or buffer overflow");
                 }
                 else {
-                    light_intensity_value = temt6000_read_compensated(&temt6000);
-            
-                    soil_moisture_value = capacitive_soil_moisture_sensor_read_compensated(&capacitive_soil_moisture_sensor);
-                    
-                    ret = bme280_read_uncomp_pressure_temperature_humidity(&bme280, &v_pressure_uncomp_u32, &v_temperature_uncomp_s32, &v_humidity_uncomp_u32);
-                    if (ret != ESP_OK) {
-                        ESP_LOGE(TAG, "Error reading temperature: %s", esp_err_to_name(ret));
-                        xSemaphoreGive(bme280_mutex);
-                        xSemaphoreGive(capacitive_soil_moisture_sensor_mutex);
-                        vTaskDelay(measurement_period_ms/portTICK_PERIOD_MS);
-                        continue;
-                    }
-
-                    temp = bme280_compensate_temperature_double(&bme280, v_temperature_uncomp_s32);
-                    sprintf(temperature, "%.2f", temp);
-                    
-                    press = bme280_compensate_pressure_double(&bme280, v_pressure_uncomp_u32) / 100; // Pa -> hPa
-                    sprintf(pressure, "%.2f", press);
-
-                    hum = bme280_compensate_humidity_double(&bme280, v_humidity_uncomp_u32);
-                    sprintf(humidity, "%.2f", hum);
-
-                    time_t now = get_timestamp();
-                    struct tm timeinfo = {0};
-                    localtime_r(&now, &timeinfo);
-                    char timestamp[32];
-                    strftime(timestamp, 32, "%Y-%m-%dT%H:%M:%SZ", &timeinfo);
-
-                    ESP_LOGI(TAG, "Timestamp: %s, Light intensity: %d%%, Soil moisture: %d%%, Pressure: %shPa, Temperature: %sC, Humidity: %s%%rH", timestamp, light_intensity_value, soil_moisture_value, pressure, temperature, humidity);
-
-                    int length = snprintf(mqtt_json_data, sizeof(mqtt_json_data),
-                        "{\"timestamp\": %lld, \"light_intensity\": %d, \"soil_moisture\": %d, \"pressure\": %s, \"temperature\": %s, \"humidity\": %s}",
-                        (uint64_t)now, light_intensity_value, soil_moisture_value, pressure, temperature, humidity);
-
-                    if (length < 0 || length >= sizeof(mqtt_json_data)) {
-                        ESP_LOGE(TAG, "Failed to create JSON string or buffer overflow");
-                    }
-                    else {
-                        ESP_LOGI(TAG, "Writing data to MQTT broker, topic:%s ,data: %s", mqtt_measurements_topic, mqtt_json_data);
-                        esp_mqtt_client_publish(greenhouse_mqtt_client, mqtt_measurements_topic, mqtt_json_data, 0, 0, 0);
-                    }
+                    ESP_LOGI(TAG, "Writing data to MQTT broker, topic:%s ,data: %s", mqtt_measurements_topic, mqtt_json_data);
+                    esp_mqtt_client_publish(greenhouse_mqtt_client, mqtt_measurements_topic, mqtt_json_data, 0, 0, 0);
                 }
 
                 xSemaphoreGive(bme280_mutex);
@@ -1206,8 +1220,8 @@ void temperature_monitoring_task() {
 ===================================================================================
 */
 
-#define SENSOR_ID ((long long) 2)
-#define SENSOR_AUTH_CODE "sensorCode2"
+#define SENSOR_ID ((long long) 7)
+#define SENSOR_AUTH_CODE "SECRET_SENSOR_CODE_ID_7"
 long long owner_id = 1;
 char* server_url = "http://192.168.137.1:8080";
 // char* sensor_name = "sensor2";
@@ -1465,6 +1479,8 @@ void app_main() {
         ESP_ERROR_CHECK(nvs_flash_init());
     }
 
+    init_sntp();
+
     init_sensors();
 
     init_sensor_semaphores();
@@ -1478,12 +1494,10 @@ void app_main() {
         return;
     }
 
-    xTaskCreate(&temperature_monitoring_task, "temperature_monitoring_task", 2048, NULL, 5, NULL);
-    xTaskCreate(&soil_moisture_monitoring_task, "soil_moisture_monitoring_task", 2048, NULL, 5, NULL);
+     xTaskCreate(&temperature_monitoring_task, "temperature_monitoring_task", 2048, NULL, 5, NULL);
+     xTaskCreate(&soil_moisture_monitoring_task, "soil_moisture_monitoring_task", 2048, NULL, 5, NULL);
 
-    init_sntp();
-
-    xTaskCreate(&reading_task, "reading_task", 4096, NULL, 5, NULL);
+    xTaskCreate(&reading_task, "reading_task", 8128, NULL, 5, NULL);
 
     current_state = RUNNING;
 

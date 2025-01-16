@@ -85,8 +85,8 @@ public class UserController {
     @DeleteMapping("/{userId}/sensors/{sensorId}")
     public ResponseEntity<Boolean> disconnectSensorFromUser(
             @PathVariable Long userId,
-            @PathVariable Long sensorId,
-            @RequestBody DisconnectSensorFromUserDto disconnectSensorFromUserDto) {
-        return ResponseEntity.ok(sensorService.disconnectSensorFromUser(userId, sensorId, disconnectSensorFromUserDto));
+            @PathVariable Long sensorId
+            /*@RequestBody DisconnectSensorFromUserDto disconnectSensorFromUserDto*/) {
+        return ResponseEntity.ok(sensorService.disconnectSensorFromUser(userId, sensorId/*, disconnectSensorFromUserDto*/));
     }
 }

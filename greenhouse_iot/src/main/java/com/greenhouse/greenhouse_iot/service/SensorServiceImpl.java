@@ -3,10 +3,12 @@ package com.greenhouse.greenhouse_iot.service;
 import com.greenhouse.greenhouse_iot.exception.GreenhouseAccessDeniedException;
 import com.greenhouse.greenhouse_iot.model.dto.MqttCredentials;
 import com.greenhouse.greenhouse_iot.model.dto.sensor.*;
+import com.greenhouse.greenhouse_iot.model.dto.sensor.commands.*;
 import com.greenhouse.greenhouse_iot.model.entity.Sensor;
 import com.greenhouse.greenhouse_iot.model.entity.User;
 import com.greenhouse.greenhouse_iot.exception.ResourceNotFoundException;
 import com.greenhouse.greenhouse_iot.model.mapper.SensorMapper;
+import com.greenhouse.greenhouse_iot.repository.SensorReadingRepository;
 import com.greenhouse.greenhouse_iot.repository.SensorRepository;
 import com.greenhouse.greenhouse_iot.repository.UserRepository;
 import lombok.AllArgsConstructor;
@@ -14,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -22,6 +25,8 @@ import java.util.stream.Collectors;
 @Service
 @AllArgsConstructor
 public class SensorServiceImpl implements SensorService{
+    private final SensorReadingRepository sensorReadingRepository;
+    private final SensorReadingService sensorReadingService;
     private final SensorRepository sensorRepository;
     private final UserRepository userRepository;
     private final SensorMapper sensorMapper;
@@ -35,7 +40,7 @@ public class SensorServiceImpl implements SensorService{
     }
 
     @Override
-    public SensorDto getSensorById(Long sensorId) {
+    public SensorDetailDto getSensorById(Long sensorId) {
         User loggedInUser = securityService.getLoggedInUserOrThrow();
 
         Sensor sensor = sensorRepository.findById(sensorId)
@@ -43,7 +48,7 @@ public class SensorServiceImpl implements SensorService{
 
         securityService.checkSensorOwnership(loggedInUser, sensor);
 
-        return sensorMapper.sensorToSensorDto(sensor);
+        return sensorMapper.sensorToSensorDetailDto(sensor);
     }
 
     @Override
@@ -51,7 +56,6 @@ public class SensorServiceImpl implements SensorService{
         Sensor sensor = sensorMapper.addSensorDtoToSensor(addSensorDto);
         sensor.setUser(null);
         sensor.setSensorCode(passwordEncoder.encode(addSensorDto.getSensorCode()));
-        sensor.setSensorName("default-name");
 
         sensor = sensorRepository.save(sensor);
         sensor.setSensorMqttName("device"+sensor.getId());
@@ -59,6 +63,7 @@ public class SensorServiceImpl implements SensorService{
 
         MqttCredentials mqttCredentials = mqttService.configureMqttForNewSensor(sensor);
         if(mqttCredentials != null){
+            setSensorConfigToDefault(sensor);
             return sensorMapper.sensorToSensorDto(sensor);
         }
         else {
@@ -112,15 +117,18 @@ public class SensorServiceImpl implements SensorService{
             throw new GreenhouseAccessDeniedException("Incorrect sensor code");
         }
 
-        User owner = userRepository.findById(userId)
+        User newOwner = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        sensor.setUser(owner);
-//        sensor.setSensorName(assignSensorToUserDto.getSensorName());
+        if(!Objects.equals(newOwner.getId(), sensor.getUser() == null ? null : sensor.getUser().getId())){
+            setSensorConfigToDefault(sensor);
+        }
+
+        sensor.setUser(newOwner);
         sensor = sensorRepository.save(sensor);
 
-        if(sensor.getUser().equals(owner)){
-            return pairSensor(owner.getId(), sensor.getId());
+        if(sensor.getUser().equals(newOwner)){
+            return pairSensor(newOwner.getId(), sensor.getId());
         }
         else {
             throw new RuntimeException("Failed");
@@ -148,7 +156,7 @@ public class SensorServiceImpl implements SensorService{
     }
 
     @Override
-    public Boolean disconnectSensorFromUser(Long userId, Long sensorId, DisconnectSensorFromUserDto disconnectSensorFromUserDto) {
+    public Boolean disconnectSensorFromUser(Long userId, Long sensorId/*, DisconnectSensorFromUserDto disconnectSensorFromUserDto*/) {
 
         User loggedInUser = securityService.getLoggedInUserOrThrow();
 
@@ -160,6 +168,8 @@ public class SensorServiceImpl implements SensorService{
         securityService.checkSensorOwnership(loggedInUser, sensor);
 
         sensor.setUser(null);
+        setSensorConfigToDefault(sensor);
+        mqttService.resetMqttPasswordForSensor(sensor);
         sensor = sensorRepository.save(sensor);
 
         return sensor.getUser() == null;
@@ -316,5 +326,38 @@ public class SensorServiceImpl implements SensorService{
 
         List<Sensor> sensors = sensorRepository.findSensorsByUserId(userId);
         return sensors.stream().map(sensorMapper::sensorToSensorDto).collect(Collectors.toList());
+    }
+
+    private void setSensorConfigToDefault(Sensor sensor){
+        String sensorMqttName = sensor.getSensorMqttName();
+        sensor.setSensorName("greenhouse-sensor");
+
+        sensor.setReadingPeriod(15 * 60 * 1000);
+        mqttService.setSensorReadingPeriod(sensorMqttName, 15 * 60 * 1000);
+
+        sensor.setHeight(0);
+        mqttService.setSensorHeight(sensorMqttName, 0);
+
+        sensor.setSoilMoistureAlertThreshold(5);
+        mqttService.setSoilMoistureAlertThreshold(sensorMqttName, 5);
+
+        sensor.setSoilMoistureActionThreshold(10);
+        mqttService.setSoilMoistureActionThreshold(sensorMqttName, 10);
+
+        sensor.setTemperatureAlertThreshold(5);
+        mqttService.setTemperatureAlertThreshold(sensorMqttName, 10);
+
+        sensor.setTemperatureActionThreshold(10);
+        mqttService.setTemperatureActionThreshold(sensorMqttName, 10);
+
+        clearSensorReadings(sensor);
+
+        sensorRepository.save(sensor);
+    }
+    private void clearSensorReadings(Sensor sensor) {
+        sensorReadingRepository.deleteAll(
+                sensorReadingRepository.findSensorReadingsBySensorId(sensor.getId(),
+                        LocalDateTime.of(1970, 1, 1, 0, 0),
+                        LocalDateTime.now().plusDays(1)));
     }
 }

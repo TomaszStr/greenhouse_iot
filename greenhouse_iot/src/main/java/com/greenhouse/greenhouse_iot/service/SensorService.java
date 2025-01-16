@@ -1,16 +1,17 @@
 package com.greenhouse.greenhouse_iot.service;
 
 import com.greenhouse.greenhouse_iot.model.dto.sensor.*;
+import com.greenhouse.greenhouse_iot.model.dto.sensor.commands.*;
 
 import java.util.List;
 
 public interface SensorService {
     List<SensorDto> getSensors();
-    SensorDto getSensorById(Long id);
+    SensorDetailDto getSensorById(Long id);
     SensorDto addSensor(AddSensorDto addSensorDto);
     PairSensorDto assignSensorToUser(Long userId, AssignSensorToUserDto assignSensorToUserDto);
     PairSensorDto pairSensor(Long userId, Long sensorId);
-    Boolean disconnectSensorFromUser(Long userId, Long sensorId, DisconnectSensorFromUserDto disconnectSensorFromUserDto);
+    Boolean disconnectSensorFromUser(Long userId, Long sensorId/*, DisconnectSensorFromUserDto disconnectSensorFromUserDto*/);
     Boolean changeSensorName(Long sensorId, ChangeSensorNameDto changeSensorNameDto);
     Boolean changeReadingPeriod(Long sensorId, ChangeReadingPeriodDto changeReadingPeriodDto);
     Boolean changeSensorState(Long sensorId, ChangeSensorStateDto changeSensorStateDto);

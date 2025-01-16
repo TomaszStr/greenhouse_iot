@@ -2,6 +2,7 @@ package com.greenhouse.greenhouse_iot.controller;
 
 import com.greenhouse.greenhouse_iot.model.dto.SensorReadingDto;
 import com.greenhouse.greenhouse_iot.model.dto.sensor.*;
+import com.greenhouse.greenhouse_iot.model.dto.sensor.commands.*;
 import com.greenhouse.greenhouse_iot.service.SensorReadingService;
 import com.greenhouse.greenhouse_iot.service.SensorService;
 import lombok.AllArgsConstructor;
@@ -28,7 +29,7 @@ public class SensorController {
     }
 
     @GetMapping("/{sensorId}")
-    public ResponseEntity<SensorDto> getSensorById(@PathVariable Long sensorId) {
+    public ResponseEntity<SensorDetailDto> getSensorById(@PathVariable Long sensorId) {
         return ResponseEntity.ok(sensorService.getSensorById(sensorId));
     }
 
