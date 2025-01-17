@@ -56,6 +56,7 @@ public class SensorServiceImpl implements SensorService{
         Sensor sensor = sensorMapper.addSensorDtoToSensor(addSensorDto);
         sensor.setUser(null);
         sensor.setSensorCode(passwordEncoder.encode(addSensorDto.getSensorCode()));
+        sensor.setReadingPeriod(60_000 * 15); // TODO static default values
 
         sensor = sensorRepository.save(sensor);
         sensor.setSensorMqttName("device"+sensor.getId());
