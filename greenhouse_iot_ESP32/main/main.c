@@ -277,7 +277,7 @@ uint8_t light_intensity_value;
 temt6000_t temt6000;
 
 // BME280
-#define I2C_MASTER_SCL_IO           GPIO_NUM_22  // SCL pin
+#define I2C_MASTER_SCL_IO           GPIO_NUM_20 // SCL pin
 #define I2C_MASTER_SDA_IO           GPIO_NUM_21  // SDA pin
 #define I2C_MASTER_NUM              I2C_NUM_0 // I2C bus number
 #define I2C_MASTER_FREQ_HZ          1000000  /*!< I2C master clock frequency */
@@ -892,14 +892,12 @@ bool check_mqtt_started(){
 void start_mqtt(){
     if(read_mqtt_config_data_from_nvs()) {
         if(check_mqtt_config_data()) {
-            ESP_LOGI(TAG, "MQTT Config: URL=%s, Username=%s, Password=%s", mqtt_url, mqtt_username, mqtt_password);
+            ESP_LOGI(TAG, "MQTT Config: URL=%s, Username=%s", mqtt_url, mqtt_username);
             mqtt_started = true;
             esp_mqtt_client_config_t mqtt_cfg = {
                 .broker.address.uri = mqtt_url,
                 .credentials.username = mqtt_username,
                 .credentials.authentication.password = mqtt_password,
-                // .network.disable_auto_reconnect = true,
-                // .network.reconnect_timeout_ms = 5000,
             };
             ESP_LOGI(TAG, "MQTT initialize mqtt_client");
             greenhouse_mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
@@ -1099,7 +1097,7 @@ void soil_moisture_monitoring_task(){
             if(soil_moisture_value < soil_moisture_alert_threshold){
                 ESP_LOGI(TAG, "Soil moisture critically low: %d%%, below alert threshold", soil_moisture_value);
                 if(wifi_check_connection() && mqtt_check_connection()) {
-                    if(difftime(current_time, last_temp_alert_time) >= TEMPERATURE_ALERT_INTERVAL_S){
+                    if(difftime(current_time, last_soil_moist_alert_time) >= SOIL_MOISTURE_ALERT_INTERVAL_S){
                         last_soil_moist_alert_time = current_time;
                         ESP_LOGI(TAG, "Send alert to mqtt broker");
                         send_soil_moisture_alert_to_mqtt(temp);
@@ -1481,23 +1479,23 @@ void app_main() {
 
     init_sntp();
 
-    init_sensors();
+    // init_sensors();
 
-    init_sensor_semaphores();
-    if (bme280_mutex == NULL || capacitive_soil_moisture_sensor_mutex == NULL) {
-        ESP_LOGE(TAG, "Semaphore initialization failed, exiting app.");
-        return;
-    }
+    // init_sensor_semaphores();
+    // if (bme280_mutex == NULL || capacitive_soil_moisture_sensor_mutex == NULL) {
+    //     ESP_LOGE(TAG, "Semaphore initialization failed, exiting app.");
+    //     return;
+    // }
 
-    if(read_device_config_from_nvs() != ESP_OK) {
-        ESP_LOGE(TAG, "Error reading device configuration");
-        return;
-    }
+    // if(read_device_config_from_nvs() != ESP_OK) {
+    //     ESP_LOGE(TAG, "Error reading device configuration");
+    //     return;
+    // }
 
-     xTaskCreate(&temperature_monitoring_task, "temperature_monitoring_task", 2048, NULL, 5, NULL);
-     xTaskCreate(&soil_moisture_monitoring_task, "soil_moisture_monitoring_task", 2048, NULL, 5, NULL);
+    //  xTaskCreate(&temperature_monitoring_task, "temperature_monitoring_task", 2048, NULL, 5, NULL);
+    //  xTaskCreate(&soil_moisture_monitoring_task, "soil_moisture_monitoring_task", 2048, NULL, 5, NULL);
 
-    xTaskCreate(&reading_task, "reading_task", 8128, NULL, 5, NULL);
+    // xTaskCreate(&reading_task, "reading_task", 8128, NULL, 5, NULL);
 
     current_state = RUNNING;
 

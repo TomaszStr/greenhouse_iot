@@ -5,6 +5,7 @@ import com.greenhouse.greenhouse_iot.model.dto.sensor.*;
 import com.greenhouse.greenhouse_iot.model.dto.sensor.commands.*;
 import com.greenhouse.greenhouse_iot.service.SensorReadingService;
 import com.greenhouse.greenhouse_iot.service.SensorService;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -35,7 +36,7 @@ public class SensorController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
-    public ResponseEntity<SensorDto> addSensor(@RequestBody AddSensorDto addSensorDto) {
+    public ResponseEntity<SensorDto> addSensor(@Valid @RequestBody AddSensorDto addSensorDto) {
         return ResponseEntity.ok(sensorService.addSensor(addSensorDto));
     }
 

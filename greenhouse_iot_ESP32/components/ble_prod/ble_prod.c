@@ -17,17 +17,6 @@ static const char *TAG = "BLE";
 #define GATTS_CHAR_UUID_CONFIRM 0xFF04
 #define GATTS_CHAR_UUID_NOTIFY 0xFF05
 
-// OLD
-// // Application Profile - A config
-// #define GATTS_SERVICE_UUID  0x00FF
-// #define GATTS_CHAR_UUID_SSID 0xFF01
-// #define GATTS_CHAR_UUID_PASSWORD 0xFF02
-// #define GATTS_CHAR_UUID_MQTT_USERNAME 0xFF03
-// #define GATTS_CHAR_UUID_MQTT_URL 0xFF04
-// #define GATTS_CHAR_UUID_MQTT_PASSWORD 0xFF05
-// #define GATTS_CHAR_UUID_CONFIRM 0xFF06
-// #define GATTS_CHAR_UUID_NOTIFY 0xFF07
-
 #define GATTS_NUM_HANDLE     40
 
 #define CHAR_VALUE_MAX_LEN 128
@@ -48,9 +37,6 @@ static bool ble_enabled = false;
 static uint16_t wifi_ssid_handle = 0;
 static uint16_t wifi_password_handle = 0;
 static uint16_t user_id_handle = 0;
-// static uint16_t mqtt_username_handle = 0;
-// static uint16_t mqtt_url_handle = 0;
-// static uint16_t mqtt_password_handle = 0;
 static uint16_t confirm_handle = 0;
 static uint16_t notify_handle = 0;
 
@@ -65,9 +51,6 @@ typedef struct {
 static char_value_t ssid_value = {0};
 static char_value_t password_value = {0};
 static char_value_t user_id_value = {0};
-// static char_value_t mqtt_url_value = {0};
-// static char_value_t mqtt_username_value = {0};
-// static char_value_t mqtt_password_value = {0};
 static char_value_t confirm_value = {0};
 
 
@@ -178,14 +161,6 @@ typedef struct {
 
 static prepare_type_env_t pairing_prepare_write_env;
 
-// typedef struct {
-//     char ssid[CHAR_VALUE_MAX_LEN];
-//     char password[CHAR_VALUE_MAX_LEN];
-//     char user[CHAR_VALUE_MAX_LEN];
-//     char mqtt[CHAR_MQTT_MAX_LEN];
-//     char device[CHAR_VALUE_MAX_LEN];
-// } ble_data_t;
-
 static void configure_characteristics() {
     esp_attr_value_t default_value = {
         .attr_max_len = CHAR_VALUE_MAX_LEN,
@@ -194,7 +169,7 @@ static void configure_characteristics() {
     };
     esp_err_t add_char_ret;
 
-    // Charakterystyka SSID
+    // Characteristic - SSID
     default_value.attr_value = ssid_value.value;
     default_value.attr_len = ssid_value.length;
     add_char_ret = esp_ble_gatts_add_char(gl_profile_tab[PAIRING_PROFILE_APP_ID].service_handle, 
@@ -205,7 +180,7 @@ static void configure_characteristics() {
         ESP_LOGE(TAG, "add char failed, error code =%x",add_char_ret);
     }
 
-    // Charakterystyka Password
+    // Characteristic - Password
     default_value.attr_value = password_value.value;
     default_value.attr_len = password_value.length;
     add_char_ret = esp_ble_gatts_add_char(gl_profile_tab[PAIRING_PROFILE_APP_ID].service_handle, 
@@ -216,7 +191,7 @@ static void configure_characteristics() {
         ESP_LOGE(TAG, "add char failed, error code =%x",add_char_ret);
     }
 
-    // Charakterystyka User
+    // Characteristic - User
     default_value.attr_value = user_id_value.value;
     default_value.attr_len = user_id_value.length;
     add_char_ret = esp_ble_gatts_add_char(gl_profile_tab[PAIRING_PROFILE_APP_ID].service_handle, 
@@ -227,41 +202,7 @@ static void configure_characteristics() {
         ESP_LOGE(TAG, "add char failed, error code =%x",add_char_ret);
     }
 
-    // // Charakterystyka MQTT username
-    // default_value.attr_value = mqtt_username_value.value;
-    // default_value.attr_len = mqtt_username_value.length;
-    // add_char_ret = esp_ble_gatts_add_char(gl_profile_tab[PAIRING_PROFILE_APP_ID].service_handle, 
-    //                        (esp_bt_uuid_t[]){{.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_MQTT_USERNAME}}, 
-    //                        ESP_GATT_PERM_WRITE, ESP_GATT_CHAR_PROP_BIT_WRITE, 
-    //                        &default_value, NULL);
-    // if(add_char_ret != ESP_OK){
-    //     ESP_LOGE(TAG, "add char failed, error code =%x",add_char_ret);
-    // }
-    
-    // // Charakterystyka MQTT
-    // default_value.attr_value = mqtt_url_value.value;
-    // default_value.attr_len = mqtt_url_value.length;
-    // add_char_ret = esp_ble_gatts_add_char(gl_profile_tab[PAIRING_PROFILE_APP_ID].service_handle, 
-    //                        (esp_bt_uuid_t[]){{.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_MQTT_URL}}, 
-    //                        ESP_GATT_PERM_WRITE, ESP_GATT_CHAR_PROP_BIT_WRITE, 
-    //                        &default_value, NULL);
-    // if(add_char_ret != ESP_OK){
-    //     ESP_LOGE(TAG, "add char failed, error code =%x",add_char_ret);
-    // }
-    
-    // // Charakterystyka MQTT password
-    // default_value.attr_value = mqtt_password_value.value;
-    // default_value.attr_len = mqtt_password_value.length;
-    // add_char_ret = esp_ble_gatts_add_char(gl_profile_tab[PAIRING_PROFILE_APP_ID].service_handle, 
-    //                        (esp_bt_uuid_t[]){{.len = ESP_UUID_LEN_16, .uuid.uuid16 = GATTS_CHAR_UUID_MQTT_PASSWORD}}, 
-    //                        ESP_GATT_PERM_WRITE, ESP_GATT_CHAR_PROP_BIT_WRITE, 
-    //                        &default_value, NULL);   
-    // if(add_char_ret != ESP_OK){
-    //     ESP_LOGE(TAG, "add char failed, error code =%x",add_char_ret);
-    // }
-
-
-    // Charakterystyka Confirm
+    // Characteristic - Confirm
     default_value.attr_value = confirm_value.value;
     default_value.attr_len = confirm_value.length;
     add_char_ret = esp_ble_gatts_add_char(gl_profile_tab[PAIRING_PROFILE_APP_ID].service_handle, 
@@ -272,7 +213,7 @@ static void configure_characteristics() {
         ESP_LOGE(TAG, "add char failed, error code =%x",add_char_ret);
     }
 
-    //Charakterystyka NOTIFY
+    // Characteristic - NOTIFY
     default_value.attr_value = confirm_value.value;
     default_value.attr_len = confirm_value.length;
     add_char_ret = esp_ble_gatts_add_char(gl_profile_tab[PAIRING_PROFILE_APP_ID].service_handle,
@@ -432,18 +373,6 @@ bool check_config_values(){
         ESP_LOGE(TAG, "Tried to save empty user name");
         return false;
     }
-    // if(mqtt_username_value.length == 0){
-    //     ESP_LOGE(TAG, "Tried to save empty MQTT username");
-    //     return false;
-    // }
-    // if(mqtt_password_value.length == 0){
-    //     ESP_LOGE(TAG, "Tried to save empty MQTT password");
-    //     return false;
-    // }
-    // if(mqtt_url_value.length == 0){
-    //     ESP_LOGE(TAG, "Tried to save empty MQTT URL");
-    //     return false;
-    // }
     ESP_LOGI(TAG, "Configuration correct");
     // notify_ble_wifi_begin();
     return true;
@@ -506,12 +435,6 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
             ESP_LOGI(TAG, "Advertising stopped successfully");
         }
         break;
-    // case ESP_GATTS_DISCONNECT_EVT:
-    //     ESP_LOGI(TAG, "Device disconnected, restarting advertising");
-    //     if (esp_ble_gap_start_advertising(&adv_params) != ESP_OK) {
-    //         ESP_LOGE(TAG, "Failed to restart advertising after disconnection");
-    //     }
-    //     break;
     case ESP_GAP_BLE_UPDATE_CONN_PARAMS_EVT:
         ESP_LOGI(TAG, "Updated connection params: min_int = %d, max_int = %d, conn_int = %d, latency = %d, timeout = %d",
                  param->update_conn_params.min_int,
@@ -601,24 +524,6 @@ static void handle_write_event_env(esp_gatt_if_t gatts_if, prepare_type_env_t *p
                     user_id_value.value[param->write.len] = '\0';
                     ESP_LOGI(TAG, "User ID updated: %s", user_id_value.value);
                 }
-                // else if (param->write.handle == mqtt_username_handle) {
-                //     strncpy((char *)mqtt_username_value.value, (char *)param->write.value, param->write.len);
-                //     mqtt_username_value.length = param->write.len;
-                //     mqtt_username_value.value[param->write.len] = '\0';
-                //     ESP_LOGI(TAG, "MQTT username updated: %s", mqtt_username_value.value);
-                // }
-                // else if (param->write.handle == mqtt_url_handle) {
-                //     strncpy((char *)mqtt_url_value.value, (char *)param->write.value, param->write.len);
-                //     mqtt_url_value.length = param->write.len;
-                //     mqtt_url_value.value[param->write.len] = '\0';
-                //     ESP_LOGI(TAG, "MQTT URL updated: %s", mqtt_url_value.value);
-                // } 
-                // else if (param->write.handle == mqtt_password_handle) {
-                //     strncpy((char *)mqtt_password_value.value, (char *)param->write.value, param->write.len);
-                //     mqtt_password_value.length = param->write.len;
-                //     mqtt_password_value.value[param->write.len] = '\0';
-                //     ESP_LOGI(TAG, "MQTT password updated: %s", mqtt_password_value.value);
-                // }
                 else{
                     ESP_LOGE(TAG, "Unknown characteristic.");
                 }
@@ -666,39 +571,6 @@ void example_exec_write_event_env(prepare_type_env_t *prepare_write_env, esp_ble
                 ESP_LOGE(TAG, "New value is too long, max lenght: %d, actual: %d", CHAR_VALUE_MAX_LEN ,prepare_write_env->prepare_len);
             }
         }
-        // else if (prepare_write_env->handle == mqtt_username_handle) {
-        //     if(prepare_write_env->prepare_len <= CHAR_VALUE_MAX_LEN){
-        //         strncpy((char *)mqtt_username_value.value, (char *)prepare_write_env->prepare_buf, prepare_write_env->prepare_len);
-        //         mqtt_username_value.length = prepare_write_env->prepare_len;
-        //         mqtt_username_value.value[prepare_write_env->prepare_len] = '\0';
-        //         ESP_LOGI(TAG, "MQTT username updated: %s", mqtt_username_value.value);
-        //     }
-        //     else {
-        //         ESP_LOGE(TAG, "New value is too long, max lenght: %d, actual: %d", CHAR_VALUE_MAX_LEN ,prepare_write_env->prepare_len);
-        //     }
-        // }
-        // else if (prepare_write_env->handle == mqtt_url_handle) {
-        //     if(prepare_write_env->prepare_len <= CHAR_VALUE_MAX_LEN){
-        //     strncpy((char *)mqtt_url_value.value, (char *)prepare_write_env->prepare_buf, prepare_write_env->prepare_len);
-        //     mqtt_url_value.length = prepare_write_env->prepare_len;
-        //     mqtt_url_value.value[prepare_write_env->prepare_len] = '\0';
-        //     ESP_LOGI(TAG, "MQTT URL updated: %s", mqtt_url_value.value);
-        //     }
-        //     else {
-        //         ESP_LOGE(TAG, "New value is too long, max lenght: %d, actual: %d", CHAR_VALUE_MAX_LEN ,prepare_write_env->prepare_len);
-        //     }
-        // } 
-        // else if (prepare_write_env->handle == mqtt_password_handle) {
-        //     if(prepare_write_env->prepare_len <= CHAR_VALUE_MAX_LEN){
-        //         strncpy((char *)mqtt_password_value.value, (char *)prepare_write_env->prepare_buf, prepare_write_env->prepare_len);
-        //         mqtt_password_value.length = prepare_write_env->prepare_len;
-        //         mqtt_password_value.value[prepare_write_env->prepare_len] = '\0';
-        //         ESP_LOGI(TAG, "MQTT username updated: %s", mqtt_password_value.value);
-        //     }
-        //     else {
-        //         ESP_LOGE(TAG, "New value is too long, max lenght: %d, actual: %d", CHAR_VALUE_MAX_LEN ,prepare_write_env->prepare_len);
-        //     }
-        // }
         else{
             ESP_LOGE(TAG, "Unknown characteristic.");
         }
@@ -808,60 +680,12 @@ static void gatts_pairing_profile_event_handler(esp_gatts_cb_event_t event, esp_
                 ESP_LOGW(TAG, "Unknown value for CCCD: 0x%04x", notify_enable);
             }
             esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
-        } 
-        // // Obsługa zapisu dla odpowiedniej charakterystyki
-        // if (param->write.handle == wifi_ssid_handle) {
-        //     strncpy((char *)ssid_value.value, (char *)param->write.value, param->write.len);
-        //     ssid_value.length = param->write.len;
-        //     ssid_value.value[param->write.len] = '\0'; // Dodanie null-terminatora
-        //     ESP_LOGI(TAG, "SSID updated: %s", ssid_value.value);
-        //     esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, &ssid_value.value);
-        // } 
-        // else if (param->write.handle == wifi_password_handle) {
-        //     strncpy((char *)password_value.value, (char *)param->write.value, param->write.len);
-        //     password_value.length = param->write.len;
-        //     password_value.value[param->write.len] = '\0';
-        //     ESP_LOGI(TAG, "Password updated: %s", password_value.value);
-        //     esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, &password_value.value);
-        // } 
-        // // else if (param->write.handle == username_handle) {
-        // //     strncpy((char *)user_value.value, (char *)param->write.value, param->write.len);
-        // //     user_value.length = param->write.len;
-        // //     user_value.value[param->write.len] = '\0';
-        // //     ESP_LOGI(TAG, "Username updated: %s", user_value.value);
-        // //     esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, &user_value.value);
-        // // } 
-        // else if (param->write.handle == mqtt_username_handle) {
-        //     strncpy((char *)mqtt_username_value.value, (char *)param->write.value, param->write.len);
-        //     mqtt_username_value.length = param->write.len;
-        //     mqtt_username_value.value[param->write.len] = '\0';
-        //     ESP_LOGI(TAG, "MQTT username updated: %s", mqtt_username_value.value);
-        //     esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, &mqtt_username_value.value);
-        // }
-        // else if (param->write.handle == mqtt_url_handle) {
-        //     strncpy((char *)mqtt_url_value.value, (char *)param->write.value, param->write.len);
-        //     mqtt_url_value.length = param->write.len;
-        //     mqtt_url_value.value[param->write.len] = '\0';
-        //     ESP_LOGI(TAG, "MQTT URL updated: %s", mqtt_url_value.value);
-        //     esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
-        // } 
-        // else if (param->write.handle == mqtt_password_handle) {
-        //     strncpy((char *)mqtt_password_value.value, (char *)param->write.value, param->write.len);
-        //     mqtt_password_value.length = param->write.len;
-        //     mqtt_password_value.value[param->write.len] = '\0';
-        //     ESP_LOGI(TAG, "MQTT username updated: %s", mqtt_password_value.value);
-        //     esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, &mqtt_password_value.value);
-        // }
+        }
 
         // // Obsługa zapisu dla odpowiedniej charakterystyki
         else if (param->write.handle != confirm_handle) {
             ESP_LOGI(TAG, "Handle write event...");
             handle_write_event_env(gatts_if, &pairing_prepare_write_env, param);
-            // strncpy((char *)ssid_value.value, (char *)param->write.value, param->write.len);
-            // ssid_value.length = param->write.len;
-            // ssid_value.value[param->write.len] = '\0'; // Dodanie null-terminatora
-            // ESP_LOGI(TAG, "SSID updated: %s", ssid_value.value);
-            // esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, &ssid_value.value);
         } 
         else if (param->write.handle == confirm_handle) {
             if (param->write.len > 0 && param->write.value[0] == 1) {
@@ -875,12 +699,6 @@ static void gatts_pairing_profile_event_handler(esp_gatts_cb_event_t event, esp_
                     ESP_LOGW(TAG, "Not all config characteristics are set correctly.");
                 }
                 esp_ble_gatts_send_response(gatts_if, param->write.conn_id, param->write.trans_id, ESP_GATT_OK, NULL);
-                // // Przykład dalszej logiki
-                // // wifi_init_sta(ble_data.ssid, ble_data.password);
-                // // mqtt_connect(ble_data.mqtt, ble_data.user, ble_data.password);
-
-                // // Wyłącz serwer BLE (opcjonalnie)
-                // ble_server_stop();
             }
             else {
                 ESP_LOGW(TAG, "Invalid confirm value");
@@ -937,15 +755,6 @@ static void gatts_pairing_profile_event_handler(esp_gatts_cb_event_t event, esp_
         } else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_USER_ID) {
             user_id_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "User ID handle: %d", user_id_handle);
-        // } else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_MQTT_USERNAME) {
-        //     mqtt_username_handle = param->add_char.attr_handle;
-        //     ESP_LOGI(TAG, "MQTT username handle: %d", mqtt_username_handle);
-        // } else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_MQTT_URL) {
-        //     mqtt_url_handle = param->add_char.attr_handle;
-        //     ESP_LOGI(TAG, "MQTT URL handle: %d", mqtt_url_handle);
-        // } else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_MQTT_PASSWORD) {
-        //     mqtt_password_handle = param->add_char.attr_handle;
-        //     ESP_LOGI(TAG, "MQTT password: %d", mqtt_password_handle);
         } else if (param->add_char.char_uuid.uuid.uuid16 == GATTS_CHAR_UUID_CONFIRM) {
             confirm_handle = param->add_char.attr_handle;
             ESP_LOGI(TAG, "Confirm handle: %d", confirm_handle);

@@ -24,6 +24,7 @@ public interface SensorMapper {
             @Mapping(target = "user", ignore = true),
             @Mapping(target = "sensorMqttName", ignore = true),
             @Mapping(target = "sensorName", ignore = true),
+            @Mapping(target = "readingPeriod", ignore = true),
             @Mapping(target = "height", ignore = true),
             @Mapping(target = "soilMoistureAlertThreshold", ignore = true),
             @Mapping(target = "soilMoistureActionThreshold", ignore = true),

@@ -54,39 +54,19 @@ public class UserController {
     }
 
     @GetMapping("/{userId}/alerts")
-    public ResponseEntity<List<SensorAlertDto>> getUsersAlerts(
-            @PathVariable Long userId,
-            @RequestParam(required = false) Boolean checked) {
+    public ResponseEntity<List<SensorAlertDto>> getUsersAlerts(@PathVariable Long userId,
+                                                               @RequestParam(required = false) Boolean checked) {
         return ResponseEntity.ok(userService.getAlertsByUserId(userId, checked));
     }
 
     @PutMapping("/{userId}/alerts/{alertId}")
-    public ResponseEntity<Void> readUserAlert(
-            @PathVariable Long userId,
-            @PathVariable Long alertId) {
+    public ResponseEntity<Void> readUserAlert(@PathVariable Long userId, @PathVariable Long alertId) {
         userService.readAlertByUser(userId, alertId);
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{userId}/sensors")
-    public ResponseEntity<PairSensorDto> assignSensorToUser(
-            @PathVariable Long userId,
-            @RequestBody AssignSensorToUserDto assignSensorToUserDto) {
-        return ResponseEntity.ok(sensorService.assignSensorToUser(userId, assignSensorToUserDto));
-    }
-
-//    @GetMapping("/{userId}/sensors/{sensorId}")
-//    public ResponseEntity<PairSensorDto> pairSensor(
-//            @PathVariable Long userId,
-//            @PathVariable Long sensorId) {
-//        return ResponseEntity.ok(sensorService.pairSensor(userId, sensorId));
-//    }
-
     @DeleteMapping("/{userId}/sensors/{sensorId}")
-    public ResponseEntity<Boolean> disconnectSensorFromUser(
-            @PathVariable Long userId,
-            @PathVariable Long sensorId
-            /*@RequestBody DisconnectSensorFromUserDto disconnectSensorFromUserDto*/) {
-        return ResponseEntity.ok(sensorService.disconnectSensorFromUser(userId, sensorId/*, disconnectSensorFromUserDto*/));
+    public ResponseEntity<Boolean> disconnectSensorFromUser(@PathVariable Long userId, @PathVariable Long sensorId) {
+        return ResponseEntity.ok(sensorService.disconnectSensorFromUser(userId, sensorId));
     }
 }
